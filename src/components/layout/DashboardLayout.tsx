@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/navigation/Sidebar';
 import { Bell, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth/client';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -16,16 +17,23 @@ interface DashboardLayoutProps {
 export function DashboardLayout({
   children,
   role,
-  userName = 'Utilisateur ACCEENT',
+  userName: propUserName,
   pageTitle,
 }: DashboardLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
+  const { userName: authUserName, userEmail } = useAuth();
+
+  // Déterminer le vrai nom d'utilisateur connecté sans inventer de placeholder
+  const effectiveUserName =
+    propUserName && propUserName !== 'Chargement...' && propUserName !== 'Utilisateur ACCEENT'
+      ? propUserName
+      : authUserName || userEmail || propUserName || 'Mon Espace';
 
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
-        <Sidebar role={role} userName={userName} />
+        <Sidebar role={role} userName={effectiveUserName} />
       </div>
 
       {/* Mobile Drawer */}
@@ -36,7 +44,7 @@ export function DashboardLayout({
             onClick={() => setMobileSidebarOpen(false)}
           />
           <div className="relative z-10 w-64 bg-sidebar">
-            <Sidebar role={role} userName={userName} />
+            <Sidebar role={role} userName={effectiveUserName} />
           </div>
         </div>
       )}
@@ -78,10 +86,10 @@ export function DashboardLayout({
               className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-85 transition-opacity"
             >
               <div className="w-8 h-8 rounded-full bg-brand-primary/10 text-brand-primary font-bold flex items-center justify-center text-xs">
-                {userName.charAt(0).toUpperCase()}
+                {effectiveUserName.charAt(0).toUpperCase()}
               </div>
               <span className="hidden sm:inline text-xs font-medium text-foreground">
-                {userName}
+                {effectiveUserName}
               </span>
             </Link>
           </div>

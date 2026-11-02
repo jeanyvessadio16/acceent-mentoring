@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getSessionTokens } from '@/lib/auth/session';
+import { getSessionTokens, setAuthCookies } from '@/lib/auth/session';
 import { usersApi, UpdateProfileInput } from '@/lib/api/users';
 
 export interface ProfileActionResult {
@@ -44,6 +44,21 @@ export async function updateProfileAction(
     };
 
     const updatedUser = await usersApi.updateMe(session.accessToken, payload);
+
+    const newFullName = updatedUser.profile?.firstName
+      ? `${updatedUser.profile.firstName} ${updatedUser.profile.lastName || ''}`.trim()
+      : undefined;
+
+    if (newFullName) {
+      await setAuthCookies({
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken || '',
+        role: session.role || 'BENEFICIARY',
+        userId: session.userId || updatedUser.id,
+        userName: newFullName,
+        userEmail: updatedUser.email,
+      });
+    }
 
     revalidatePath('/beneficiary/profile');
     revalidatePath('/beneficiary/dashboard');

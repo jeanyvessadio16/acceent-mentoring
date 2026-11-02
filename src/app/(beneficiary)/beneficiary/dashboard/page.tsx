@@ -110,19 +110,25 @@ async function BeneficiaryDashboardContent() {
   let errorNotice: string | null = null;
 
   try {
-    const [userRes, dashRes, requestsRes] = await Promise.all([
-      usersApi.getMe(session.accessToken).catch(() => null),
-      dashboardApi.getBeneficiaryDashboard(session.accessToken),
+    userProfile = await usersApi.getMe(session.accessToken);
+  } catch (error: any) {
+    if (error?.statusCode === 401) {
+      redirect('/login?sessionExpired=true&callbackUrl=/beneficiary/dashboard');
+    }
+    errorNotice = error?.message || 'Impossible de charger votre profil.';
+  }
+
+  try {
+    const [dashRes, requestsRes] = await Promise.all([
+      dashboardApi.getBeneficiaryDashboard(session.accessToken).catch(() => null),
       mentoringRequestsApi.getMyRequests(session.accessToken).catch(() => []),
     ]);
-    userProfile = userRes;
     dashboardData = dashRes;
     pendingRequests = (requestsRes || []).filter((r: any) => r.status === 'PENDING');
   } catch (error: any) {
     if (error?.statusCode === 401) {
       redirect('/login?sessionExpired=true&callbackUrl=/beneficiary/dashboard');
     }
-    errorNotice = error?.message || 'Erreur lors du chargement des données.';
   }
 
   const profileDetails = userProfile?.profile;
@@ -193,14 +199,14 @@ async function BeneficiaryDashboardContent() {
         </div>
       </PageHeader>
 
-      {/* Carte d'identité du profil connecté */}
+      {/* Carte d'identité du profil connecté avec ses données réelles */}
       <Card className="mb-6 border-brand-primary/20 bg-linear-to-r from-brand-primary/5 via-brand-accent/5 to-transparent shadow-xs">
-        <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-brand-primary text-white font-bold text-lg flex items-center justify-center shrink-0 shadow-xs">
+        <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-full bg-brand-primary text-white font-bold text-xl flex items-center justify-center shrink-0 shadow-xs">
               {(userFirstName.charAt(0) || 'B').toUpperCase()}
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-bold text-foreground">{userFullName}</h2>
                 <Badge className="bg-brand-primary text-white text-[10px]">
@@ -212,6 +218,24 @@ async function BeneficiaryDashboardContent() {
                   </Badge>
                 )}
               </div>
+
+              {/* Titre actuel et organisation réels issus de la base */}
+              {(profileDetails?.currentTitle || profileDetails?.organization) && (
+                <p className="text-xs font-semibold text-brand-primary flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 shrink-0" />
+                  {[profileDetails.currentTitle, profileDetails.organization].filter(Boolean).join(' • ')}
+                </p>
+              )}
+
+              {/* Niveau d'études réel */}
+              {profileDetails?.educationLevel && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                  Niveau : <span className="font-medium text-foreground">{profileDetails.educationLevel}</span>
+                </p>
+              )}
+
+              {/* Coordonnées */}
               <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                 {userEmail && (
                   <span className="flex items-center gap-1">
@@ -232,26 +256,35 @@ async function BeneficiaryDashboardContent() {
                   </span>
                 )}
               </div>
+
+              {/* Biographie réelle */}
+              {profileDetails?.bio && (
+                <p className="text-xs text-foreground/80 italic pt-1 line-clamp-2 max-w-2xl">
+                  « {profileDetails.bio} »
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-border/60">
-            {profileDetails?.sexe && (
-              <Badge variant="outline" className="text-[10px]">
-                Sexe : {profileDetails.sexe === 'FEMME' ? 'Femme' : 'Homme'}
-              </Badge>
-            )}
-            {profileDetails?.milieuDeResidence && (
-              <Badge variant="outline" className="text-[10px]">
-                Milieu : {profileDetails.milieuDeResidence === 'RURAL' ? 'Rural' : 'Urbain'}
-              </Badge>
-            )}
-            {profileDetails?.sdh && (
-              <Badge variant="outline" className="text-[10px]">
-                SDH : {profileDetails.sdh === 'OUI' ? 'Oui' : 'Non'}
-              </Badge>
-            )}
-            <Button asChild size="sm" variant="outline" className="text-xs ml-auto md:ml-2">
+          <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-border/60">
+            <div className="flex flex-wrap gap-1.5">
+              {profileDetails?.sexe && (
+                <Badge variant="outline" className="text-[10px]">
+                  Sexe : {profileDetails.sexe === 'FEMME' ? 'Femme' : 'Homme'}
+                </Badge>
+              )}
+              {profileDetails?.milieuDeResidence && (
+                <Badge variant="outline" className="text-[10px]">
+                  Milieu : {profileDetails.milieuDeResidence === 'RURAL' ? 'Rural' : 'Urbain'}
+                </Badge>
+              )}
+              {profileDetails?.sdh && (
+                <Badge variant="outline" className="text-[10px]">
+                  SDH : {profileDetails.sdh === 'OUI' ? 'Oui' : 'Non'}
+                </Badge>
+              )}
+            </div>
+            <Button asChild size="sm" variant="outline" className="text-xs mt-1">
               <Link href="/beneficiary/profile" className="flex items-center gap-1">
                 Modifier mon profil
                 <ArrowRight className="w-3.5 h-3.5" />

@@ -1,84 +1,64 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { OpportunityCard } from '@/components/shared/OpportunityCard';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Input } from '@/components/ui/input';
 import { OpportunityItem } from '@/types';
-import { Briefcase, Search } from 'lucide-react';
+import { opportunitiesApi } from '@/lib/api/opportunities';
+import { Briefcase, Search, Loader2 } from 'lucide-react';
 
-const MOCK_OPPORTUNITIES: OpportunityItem[] = [
-  {
-    id: 'op1',
-    title: 'Programme d’Accélération Tech & Climat 2026',
-    organization: 'Dakar Innovation Seed',
-    location: 'Dakar, Sénégal (Hybride)',
-    category: 'FINANCEMENT',
-    deadline: '2026-12-15',
-    description: 'Bourse d’amorçage de 15 000 000 FCFA accompagnée d’un mentoring stratégique de 6 mois pour les startups à impact.',
-    isExpired: false,
-  },
-  {
-    id: 'op2',
-    title: 'Stage Ingénieur Frontend Next.js / TypeScript',
-    organization: 'FinTech Wave Labs',
-    location: 'Dakar / Télétravail',
-    category: 'STAGE',
-    deadline: '2026-11-30',
-    description: 'Immersion au sein d’une équipe produit senior pour développer les interfaces web d’un système de paiement panafricain.',
-    isExpired: false,
-  },
-  {
-    id: 'op3',
-    title: 'Bourse d’Excellence Master Cybersécurité & IA',
-    organization: 'Fondation Afrique Avenir',
-    location: 'Sénégal / International',
-    category: 'BOURSE',
-    deadline: '2026-12-01',
-    description: 'Prise en charge intégrale des frais de scolarité et allocation mensuelle pour étudiants méritants.',
-    isExpired: false,
-  },
-  {
-    id: 'op4',
-    title: 'Chef de Projet Junior — Transformation Digitale',
-    organization: 'Groupe Bancaire Ouest-Africain',
-    location: 'Abidjan, Côte d’Ivoire',
-    category: 'EMPLOI',
-    deadline: '2026-11-20',
-    description: 'CDI junior pour accompagner le déploiement de nouvelles solutions bancaires mobiles.',
-    isExpired: false,
-  },
-  {
-    id: 'op5',
-    title: 'Formation Intensive Data Science & Intelligence Artificielle',
-    organization: 'KeurTech Academy',
-    location: 'Dakar, Sénégal',
-    category: 'FORMATION',
-    deadline: '2026-12-10',
-    description: 'Bootcamp certifiant de 12 semaines avec mentorat personnalisé et projet de mise en situation réelle.',
-    isExpired: false,
-  },
-];
+function mapApiOpportunity(op: any): OpportunityItem {
+  return {
+    id: op.id,
+    title: op.title,
+    organization: op.organization || 'Organisme partenaire',
+    location: op.city ? `${op.city}, ${op.country || 'Sénégal'}` : op.country || 'Sénégal',
+    category: op.category || 'EMPLOI',
+    deadline: op.expiresAt || '',
+    description: op.description || '',
+    applicationUrl: op.externalUrl || undefined,
+    isExpired: op.expiresAt ? new Date(op.expiresAt) < new Date() : false,
+  };
+}
 
-export default function BeneficiaryOpportunitiesPage() {
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [selectedCategory, setSelectedCategory] = React.useState('');
+export default function BeneficiaryOpportunitesPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [opportunities, setOpportunities] = useState<OpportunityItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const categories = ['Toutes', 'EMPLOI', 'STAGE', 'FORMATION', 'BOURSE', 'FINANCEMENT'];
+  const categories = ['Toutes', 'EMPLOI', 'STAGE', 'FORMATION', 'BOURSE', 'FINANCEMENT', 'CONCOURS'];
 
-  const filteredOpportunities = MOCK_OPPORTUNITIES.filter((item) => {
-    const matchesSearch =
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.organization.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    let isCancelled = false;
+    setIsLoading(true);
 
-    const matchesCategory =
-      !selectedCategory || selectedCategory === 'Toutes' || item.category === selectedCategory;
+    opportunitiesApi
+      .getAll({
+        search: searchTerm.trim() || undefined,
+        category: selectedCategory || undefined,
+      })
+      .then((res) => {
+        if (!isCancelled) {
+          const list = Array.isArray(res) ? res : res?.items || [];
+          setOpportunities(list.map(mapApiOpportunity));
+        }
+      })
+      .catch((err) => {
+        console.error('Erreur chargement opportunités:', err);
+        if (!isCancelled) setOpportunities([]);
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoading(false);
+      });
 
-    return matchesSearch && matchesCategory;
-  });
+    return () => {
+      isCancelled = true;
+    };
+  }, [searchTerm, selectedCategory]);
 
   return (
     <DashboardLayout role="BENEFICIARY" pageTitle="Opportunités">
@@ -121,18 +101,23 @@ export default function BeneficiaryOpportunitiesPage() {
         </div>
 
         {/* Liste des offres */}
-        {filteredOpportunities.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            Chargement des opportunités...
+          </div>
+        ) : opportunities.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredOpportunities.map((opportunity) => (
+            {opportunities.map((opportunity) => (
               <OpportunityCard key={opportunity.id} opportunity={opportunity} />
             ))}
           </div>
         ) : (
           <EmptyState
-            title="Aucune opportunité trouvée"
-            description="Modifiez vos filtres ou tentez une autre recherche pour trouver des offres pertinentes."
+            title="Aucune offre publiée pour le moment"
+            description="De nouvelles opportunités de stages, concours et formations validées par l'administration seront bientôt publiées."
             icon={Briefcase}
-            actionLabel="Réinitialiser les filtres"
+            actionLabel={searchTerm || selectedCategory ? 'Réinitialiser les filtres' : undefined}
             onActionClick={() => {
               setSearchTerm('');
               setSelectedCategory('');
@@ -143,4 +128,3 @@ export default function BeneficiaryOpportunitiesPage() {
     </DashboardLayout>
   );
 }
-

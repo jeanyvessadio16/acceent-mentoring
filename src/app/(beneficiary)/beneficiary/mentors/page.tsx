@@ -1,137 +1,79 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { MentorCard } from '@/components/shared/MentorCard';
 import { MentorFilterBar } from '@/features/mentor-search/MentorFilterBar';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { MentorProfile } from '@/types';
-import { Users } from 'lucide-react';
+import { mentorsApi } from '@/lib/api/mentors';
+import { Users, Loader2 } from 'lucide-react';
 
-const MOCK_MENTORS: MentorProfile[] = [
-  {
-    id: 'm1',
-    firstName: 'Awa',
-    lastName: 'Ndiaye',
-    email: 'awa.ndiaye@exemple.sn',
+function mapApiMentor(m: any): MentorProfile {
+  return {
+    id: m.id,
+    firstName: m.user?.profile?.firstName || 'Mentor',
+    lastName: m.user?.profile?.lastName || '',
+    email: m.user?.email || '',
     role: 'MENTOR',
     status: 'ACTIVE',
-    country: 'Sénégal',
-    city: 'Dakar',
-    title: 'Lead Software Architect & Tech Advisor',
-    company: 'Sonatel & Africa Fintech Forum',
-    experienceYears: 12,
-    sectors: ['Tech & Digital', 'Fintech'],
-    targetAudiences: ['Jeunes diplômés', 'Entrepreneurs'],
-    mentoringTypes: ['INDIVIDUAL'],
-    rating: 4.9,
-    reviewCount: 28,
-    isAvailable: true,
-    validationStatus: 'APPROVED',
-    skills: ['Architecture Cloud', 'TypeScript', 'Systèmes Distribués', 'Leadership Tech'],
-    interests: ['Inclusion numérique', 'Open Source'],
-    languages: ['Français', 'Wolof', 'Anglais'],
-    bio: 'Passionnée par l’émergence technologique africaine, j’aide les jeunes développeurs et porteurs de projets à bâtir des systèmes résilients et scalables.',
-    createdAt: '2025-01-10',
-    updatedAt: '2026-02-15',
-  },
-  {
-    id: 'm2',
-    firstName: 'Moussa',
-    lastName: 'Sow',
-    email: 'moussa.sow@exemple.sn',
-    role: 'MENTOR',
-    status: 'ACTIVE',
-    country: 'Sénégal',
-    city: 'Saint-Louis',
-    title: 'Directeur d’Incubateur & Serial Entrepreneur',
-    company: 'Sahel Innov Hub',
-    experienceYears: 15,
-    sectors: ['Entrepreneuriat', 'Agrobusiness'],
-    targetAudiences: ['Startups', 'Porteurs de projet'],
-    mentoringTypes: ['INDIVIDUAL', 'GROUP'],
-    rating: 4.8,
-    reviewCount: 35,
-    isAvailable: true,
-    validationStatus: 'APPROVED',
-    skills: ['Modèle Économique', 'Levée de fonds', 'Stratégie Go-to-Market', 'Négociation'],
-    interests: ['Innovation rurale', 'Entrepreneuriat vert'],
-    languages: ['Français', 'Pulaar', 'Anglais'],
-    bio: 'J’accompagne la nouvelle génération d’entrepreneurs à structurer leurs projets, valider leur marché et attirer des investisseurs.',
-    createdAt: '2025-01-15',
-    updatedAt: '2026-02-20',
-  },
-  {
-    id: 'm3',
-    firstName: 'Aminata',
-    lastName: 'Diallo',
-    email: 'aminata.diallo@exemple.sn',
-    role: 'EXPERT',
-    status: 'ACTIVE',
-    country: 'Sénégal',
-    city: 'Dakar',
-    title: 'Consultante RH & Coach Professionnelle Certifiée',
-    company: 'Talents & Ambitions Africa',
-    experienceYears: 10,
-    sectors: ['Ressources Humaines', 'Leadership'],
-    targetAudiences: ['Femmes leaders', 'Professionnels en reconversion'],
-    mentoringTypes: ['INDIVIDUAL'],
-    rating: 5.0,
-    reviewCount: 19,
-    isAvailable: true,
-    validationStatus: 'APPROVED',
-    skills: ['Développement de Carrière', 'Personal Branding', 'Gestion des Talents', 'Prise de parole'],
-    interests: ['Leadership féminin', 'Coaching'],
-    languages: ['Français', 'Anglais'],
-    bio: 'Experte en dynamique des talents, j’aide les professionnels à clarifier leur positionnement et à franchir des paliers décisifs de carrière.',
-    createdAt: '2025-02-01',
-    updatedAt: '2026-03-01',
-  },
-  {
-    id: 'm4',
-    firstName: 'Cheikh',
-    lastName: 'Gueye',
-    email: 'cheikh.gueye@exemple.sn',
-    role: 'MENTOR',
-    status: 'ACTIVE',
-    country: 'Sénégal',
-    city: 'Dakar',
-    title: 'Directeur Financier & Spécialiste M&A',
-    company: 'West Africa Capital Partners',
-    experienceYears: 14,
-    sectors: ['Finance & Fintech', 'Entrepreneuriat'],
-    targetAudiences: ['PME', 'Startups en Série A'],
-    mentoringTypes: ['INDIVIDUAL'],
-    rating: 4.9,
-    reviewCount: 22,
-    isAvailable: true,
-    validationStatus: 'APPROVED',
-    skills: ['Modélisation Financière', 'Audit', 'Stratégie de Financement'],
-    interests: ['Microfinance', 'Impact investing'],
-    languages: ['Français', 'Anglais'],
-    bio: 'Conseiller financier et mentor de dirigeants pour optimiser la structure de capital et réussir les phases de croissance.',
-    createdAt: '2025-02-10',
-    updatedAt: '2026-03-05',
-  },
-];
+    country: m.user?.profile?.country || 'Sénégal',
+    city: m.user?.profile?.city || '',
+    title: m.jobTitle || 'Mentor ACCEENT',
+    company: m.organization || '',
+    experienceYears: m.yearsOfExperience || 0,
+    sectors: m.sectors || [],
+    targetAudiences: m.targetAudiences || [],
+    mentoringTypes: m.mentoringTypes || ['INDIVIDUAL'],
+    rating: m.averageRating ?? 5.0,
+    reviewCount: 0,
+    isAvailable: m.isAvailable ?? true,
+    validationStatus: m.validationStatus || 'APPROVED',
+    skills: m.expertises || [],
+    interests: [],
+    languages: m.languages || ['Français'],
+    bio: m.biography || '',
+    createdAt: m.createdAt || '',
+    updatedAt: m.updatedAt || '',
+  };
+}
 
 export default function BeneficiaryMentorsPage() {
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [selectedSector, setSelectedSector] = React.useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSector, setSelectedSector] = useState('');
+  const [mentors, setMentors] = useState<MentorProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredMentors = MOCK_MENTORS.filter((mentor) => {
-    const matchesSearch =
-      mentor.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      mentor.skills.some((s) => s.toLowerCase().includes(searchTerm.toLowerCase()));
+  useEffect(() => {
+    let isCancelled = false;
+    setIsLoading(true);
 
-    const matchesSector =
-      !selectedSector || mentor.sectors.includes(selectedSector);
+    mentorsApi
+      .searchMentors({
+        search: searchTerm.trim() || undefined,
+        sector: selectedSector || undefined,
+      })
+      .then((res) => {
+        if (!isCancelled) {
+          const list = Array.isArray(res) ? res : res?.items || [];
+          setMentors(list.map(mapApiMentor));
+        }
+      })
+      .catch((err) => {
+        console.error('Erreur chargement mentors:', err);
+        if (!isCancelled) {
+          setMentors([]);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoading(false);
+      });
 
-    return matchesSearch && matchesSector;
-  });
+    return () => {
+      isCancelled = true;
+    };
+  }, [searchTerm, selectedSector]);
 
   return (
     <DashboardLayout role="BENEFICIARY" pageTitle="Trouver un Mentor">
@@ -147,9 +89,14 @@ export default function BeneficiaryMentorsPage() {
           selectedSector={selectedSector}
         />
 
-        {filteredMentors.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            Chargement des mentors validés...
+          </div>
+        ) : mentors.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMentors.map((mentor) => (
+            {mentors.map((mentor) => (
               <MentorCard
                 key={mentor.id}
                 mentor={mentor}
@@ -159,10 +106,10 @@ export default function BeneficiaryMentorsPage() {
           </div>
         ) : (
           <EmptyState
-            title="Aucun mentor trouvé"
-            description="Essayez de modifier vos filtres de recherche ou sélectionnez un autre secteur d'activité."
+            title="Aucun mentor disponible"
+            description="Aucun profil mentor validé ne correspond à ces critères actuellement. De nouveaux mentors sont régulièrement validés par nos équipes."
             icon={Users}
-            actionLabel="Réinitialiser les filtres"
+            actionLabel={searchTerm || selectedSector ? 'Réinitialiser les filtres' : undefined}
             onActionClick={() => {
               setSearchTerm('');
               setSelectedSector('');
@@ -173,4 +120,3 @@ export default function BeneficiaryMentorsPage() {
     </DashboardLayout>
   );
 }
-

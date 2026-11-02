@@ -1,14 +1,16 @@
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { MentoringRequestModal } from '@/features/mentoring-requests/MentoringRequestModal';
 import { MentorProfile } from '@/types';
+import { mentorsApi } from '@/lib/api/mentors';
 import {
   Star,
   MapPin,
@@ -16,41 +18,38 @@ import {
   CheckCircle2,
   MessageSquare,
   ArrowLeft,
+  Users,
+  Loader2,
 } from 'lucide-react';
 
-const MOCK_MENTOR: MentorProfile = {
-  id: 'm1',
-  firstName: 'Awa',
-  lastName: 'Ndiaye',
-  email: 'awa.ndiaye@exemple.sn',
-  role: 'MENTOR',
-  status: 'ACTIVE',
-  country: 'Sénégal',
-  city: 'Dakar',
-  title: 'Lead Software Architect & Tech Advisor',
-  company: 'Sonatel & Africa Fintech Forum',
-  experienceYears: 12,
-  sectors: ['Tech & Digital', 'Fintech', 'Cloud Computing'],
-  targetAudiences: ['Jeunes diplômés', 'Entrepreneurs tech', 'Développeurs seniors'],
-  mentoringTypes: ['INDIVIDUAL', 'GROUP'],
-  rating: 4.9,
-  reviewCount: 28,
-  isAvailable: true,
-  validationStatus: 'APPROVED',
-  skills: [
-    'Architecture Cloud',
-    'Next.js & React',
-    'Systèmes Distribués',
-    'Gouvernance Données',
-    'Mentoring & Leadership',
-    'Cybersécurité',
-  ],
-  interests: ['Inclusion numérique des femmes', 'Open Source en Afrique'],
-  languages: ['Français', 'Wolof', 'Anglais'],
-  bio: 'Passionnée par l’émergence technologique africaine et l’excellence en ingénierie logicielle. J’accompagne depuis plus de 6 ans des jeunes diplômés et des porteurs de projets dans la structuration de leurs compétences d’architecture et leur positionnement sur le marché international.',
-  createdAt: '2025-01-10',
-  updatedAt: '2026-02-15',
-};
+function mapApiMentor(m: any): MentorProfile {
+  return {
+    id: m.id,
+    firstName: m.user?.profile?.firstName || 'Mentor',
+    lastName: m.user?.profile?.lastName || '',
+    email: m.user?.email || '',
+    role: 'MENTOR',
+    status: 'ACTIVE',
+    country: m.user?.profile?.country || 'Sénégal',
+    city: m.user?.profile?.city || '',
+    title: m.jobTitle || 'Mentor ACCEENT',
+    company: m.organization || '',
+    experienceYears: m.yearsOfExperience || 0,
+    sectors: m.sectors || [],
+    targetAudiences: m.targetAudiences || [],
+    mentoringTypes: m.mentoringTypes || ['INDIVIDUAL'],
+    rating: m.averageRating ?? 5.0,
+    reviewCount: 0,
+    isAvailable: m.isAvailable ?? true,
+    validationStatus: m.validationStatus || 'APPROVED',
+    skills: m.expertises || [],
+    interests: [],
+    languages: m.languages || ['Français'],
+    bio: m.biography || '',
+    createdAt: m.createdAt || '',
+    updatedAt: m.updatedAt || '',
+  };
+}
 
 function MentorDetailSkeleton() {
   return (
@@ -67,17 +66,74 @@ function MentorDetailSkeleton() {
 function BeneficiaryMentorDetailContent() {
   const params = useParams();
   const router = useRouter();
-  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const mentorId = params?.id as string;
 
-  const mentor = MOCK_MENTOR;
+  const [mentor, setMentor] = useState<MentorProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mentorId) return;
+
+    let isCancelled = false;
+    setIsLoading(true);
+
+    mentorsApi
+      .getMentorById(mentorId)
+      .then((res) => {
+        if (!isCancelled && res) {
+          setMentor(mapApiMentor(res));
+        }
+      })
+      .catch((err) => {
+        console.error('Erreur récupération mentor:', err);
+        if (!isCancelled) setMentor(null);
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [mentorId]);
+
+  if (isLoading) {
+    return <MentorDetailSkeleton />;
+  }
+
+  if (!mentor) {
+    return (
+      <DashboardLayout role="BENEFICIARY" pageTitle="Profil Mentor">
+        <div className="mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push('/beneficiary/mentors')}
+            className="text-xs hover:text-brand-primary p-0 h-auto"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 mr-1" />
+            Retour à l'annuaire des mentors
+          </Button>
+        </div>
+        <EmptyState
+          title="Mentor introuvable"
+          description="Le profil recherché n'existe pas ou n'est plus disponible sur la plateforme."
+          icon={Users}
+          actionLabel="Voir tous les mentors"
+          actionHref="/beneficiary/mentors"
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
-    <DashboardLayout role="BENEFICIARY" pageTitle="Profil Mentor">
+    <DashboardLayout role="BENEFICIARY" pageTitle={`Mentor ${mentor.firstName} ${mentor.lastName}`}>
       <div className="mb-4">
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => router.back()}
+          onClick={() => router.push('/beneficiary/mentors')}
           className="text-xs hover:text-brand-primary p-0 h-auto"
         >
           <ArrowLeft className="w-3.5 h-3.5 mr-1" />
@@ -125,16 +181,17 @@ function BeneficiaryMentorDetailContent() {
               <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
                 <div className="flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5" />
-                  <span>{mentor.city}, {mentor.country}</span>
+                  <span>{[mentor.city, mentor.country].filter(Boolean).join(', ')}</span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Briefcase className="w-3.5 h-3.5" />
-                  <span>{mentor.experienceYears} ans d'expérience</span>
-                </div>
+                {mentor.experienceYears > 0 && (
+                  <div className="flex items-center gap-1">
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>{mentor.experienceYears} ans d'expérience</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-1 text-amber-600 font-semibold">
                   <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
                   <span>{mentor.rating.toFixed(1)}</span>
-                  <span className="font-normal text-muted-foreground">({mentor.reviewCount} avis)</span>
                 </div>
               </div>
             </div>
@@ -148,23 +205,25 @@ function BeneficiaryMentorDetailContent() {
               <CardContent className="p-6 space-y-3">
                 <h3 className="font-semibold text-base text-foreground">À propos du mentor</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {mentor.bio}
+                  {mentor.bio || "Ce mentor n'a pas encore rédigé de biographie détaillée."}
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="shadow-xs">
-              <CardContent className="p-6 space-y-3">
-                <h3 className="font-semibold text-base text-foreground">Compétences & Domaines d'expertise</h3>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {mentor.skills.map((skill) => (
-                    <Badge key={skill} variant="secondary" className="text-xs">
-                      {skill}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            {mentor.skills.length > 0 && (
+              <Card className="shadow-xs">
+                <CardContent className="p-6 space-y-3">
+                  <h3 className="font-semibold text-base text-foreground">Compétences & Domaines d'expertise</h3>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {mentor.skills.map((skill) => (
+                      <Badge key={skill} variant="secondary" className="text-xs">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -173,18 +232,24 @@ function BeneficiaryMentorDetailContent() {
                 <h3 className="font-semibold text-sm text-foreground">Informations de mentorat</h3>
 
                 <div className="space-y-2 text-xs">
-                  <div>
-                    <span className="text-muted-foreground block text-[11px]">Secteurs d'intervention</span>
-                    <span className="font-medium">{mentor.sectors.join(', ')}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-[11px]">Publics cibles</span>
-                    <span className="font-medium">{mentor.targetAudiences.join(', ')}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-[11px]">Langues parlées</span>
-                    <span className="font-medium">{mentor.languages.join(', ')}</span>
-                  </div>
+                  {mentor.sectors.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Secteurs d'intervention</span>
+                      <span className="font-medium">{mentor.sectors.join(', ')}</span>
+                    </div>
+                  )}
+                  {mentor.targetAudiences.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Publics cibles</span>
+                      <span className="font-medium">{mentor.targetAudiences.join(', ')}</span>
+                    </div>
+                  )}
+                  {mentor.languages.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Langues parlées</span>
+                      <span className="font-medium">{mentor.languages.join(', ')}</span>
+                    </div>
+                  )}
                 </div>
 
                 <Button

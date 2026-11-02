@@ -1,59 +1,63 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { MasterclassCard } from '@/components/shared/MasterclassCard';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { MasterclassItem } from '@/types';
-import { GraduationCap } from 'lucide-react';
+import { masterclassesApi } from '@/lib/api/masterclasses';
+import { GraduationCap, Loader2 } from 'lucide-react';
 
-const MOCK_MASTERCLASSES: MasterclassItem[] = [
-  {
-    id: 'mc1',
-    title: 'Réussir sa levée de fonds d’amorçage en Afrique de l’Ouest',
-    speakerName: 'Babacar Ndiaye',
-    speakerRole: 'Managing Partner @ Sahel Capital',
-    scheduledAt: '2026-11-15T18:00:00Z',
-    durationMinutes: 90,
-    category: 'Entrepreneuriat',
-    description: 'Une session pratique pour comprendre les attentes réelles des business angels et fonds d’amorçage dans la sous-région.',
-    participantCount: 142,
+function mapApiMasterclass(mc: any): MasterclassItem {
+  return {
+    id: mc.id,
+    title: mc.title,
+    speakerName: mc.speakerName || 'Intervenant expert',
+    speakerRole: mc.speakerBio || 'Expert ACCEENT',
+    scheduledAt: mc.scheduledAt || '',
+    durationMinutes: mc.durationMins || 60,
+    category: mc.category || 'Atelier',
+    description: mc.description || '',
+    participantCount: mc.registrationCount || 0,
     isRegistered: false,
-  },
-  {
-    id: 'mc2',
-    title: 'Architecture Web moderne avec Next.js et Supabase',
-    speakerName: 'Awa Ndiaye',
-    speakerRole: 'Lead Architect @ Fintech Forum',
-    scheduledAt: '2026-11-22T17:30:00Z',
-    durationMinutes: 75,
-    category: 'Tech & Digital',
-    description: 'Bonnes pratiques de scalabilité, authentification SSR et gestion de sécurité applicative pour produits digitaux.',
-    participantCount: 210,
-    isRegistered: false,
-  },
-  {
-    id: 'mc3',
-    title: 'Construire son Personal Branding et son Réseau Professionnel',
-    speakerName: 'Aminata Diallo',
-    speakerRole: 'Head of People & Talents',
-    scheduledAt: '2026-10-10T16:00:00Z',
-    durationMinutes: 60,
-    category: 'Carrière',
-    description: 'Stratégies concrètes pour maximiser sa visibilité sur LinkedIn et attirer les recruteurs et partenaires.',
-    participantCount: 350,
-    isRegistered: true,
-  },
-];
+    liveUrl: mc.meetingUrl || undefined,
+  };
+}
 
 export default function BeneficiaryMasterclassesPage() {
-  const [selectedFilter, setSelectedFilter] = React.useState('Toutes');
-  const filters = ['Toutes', 'Tech & Digital', 'Entrepreneuriat', 'Carrière'];
+  const [selectedFilter, setSelectedFilter] = useState('Toutes');
+  const [masterclasses, setMasterclasses] = useState<MasterclassItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredMasterclasses = MOCK_MASTERCLASSES.filter((mc) => {
-    if (selectedFilter === 'Toutes') return true;
-    return mc.category === selectedFilter;
-  });
+  const filters = ['Toutes', 'Tech & Digital', 'Entrepreneuriat', 'Carrière', 'Soft Skills'];
+
+  useEffect(() => {
+    let isCancelled = false;
+    setIsLoading(true);
+
+    masterclassesApi
+      .getAll({
+        category: selectedFilter === 'Toutes' ? undefined : selectedFilter,
+      })
+      .then((res) => {
+        if (!isCancelled) {
+          const list = Array.isArray(res) ? res : res?.items || [];
+          setMasterclasses(list.map(mapApiMasterclass));
+        }
+      })
+      .catch((err) => {
+        console.error('Erreur chargement masterclasses:', err);
+        if (!isCancelled) setMasterclasses([]);
+      })
+      .finally(() => {
+        if (!isCancelled) setIsLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedFilter]);
 
   return (
     <DashboardLayout role="BENEFICIARY" pageTitle="Masterclasses">
@@ -68,7 +72,7 @@ export default function BeneficiaryMasterclassesPage() {
             <button
               key={filter}
               onClick={() => setSelectedFilter(filter)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
                 selectedFilter === filter
                   ? 'bg-brand-primary text-white'
                   : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
@@ -79,13 +83,27 @@ export default function BeneficiaryMasterclassesPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredMasterclasses.map((masterclass) => (
-            <MasterclassCard key={masterclass.id} masterclass={masterclass} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            Chargement des masterclasses...
+          </div>
+        ) : masterclasses.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {masterclasses.map((mc) => (
+              <MasterclassCard key={mc.id} masterclass={mc} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title="Aucun atelier programmé pour le moment"
+            description="Le calendrier des prochaines masterclasses et ateliers en direct sera bientôt publié."
+            icon={GraduationCap}
+            actionLabel={selectedFilter !== 'Toutes' ? 'Voir toutes les catégories' : undefined}
+            onActionClick={() => setSelectedFilter('Toutes')}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
 }
-
