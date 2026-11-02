@@ -1,0 +1,63 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { getSessionTokens } from '@/lib/auth/session';
+import { usersApi, UpdateProfileInput } from '@/lib/api/users';
+
+export interface ProfileActionResult {
+  success: boolean;
+  message: string;
+  data?: any;
+}
+
+export async function updateProfileAction(
+  prevState: ProfileActionResult | null,
+  formData: FormData
+): Promise<ProfileActionResult> {
+  const session = await getSessionTokens();
+
+  if (!session.isAuthenticated || !session.accessToken) {
+    return {
+      success: false,
+      message: 'Vous devez être connecté pour modifier votre profil.',
+    };
+  }
+
+  try {
+    const rawSexe = formData.get('sexe')?.toString();
+    const rawMilieu = formData.get('milieuDeResidence')?.toString();
+    const rawSdh = formData.get('sdh')?.toString();
+
+    const payload: UpdateProfileInput = {
+      firstName: formData.get('firstName')?.toString().trim() || undefined,
+      lastName: formData.get('lastName')?.toString().trim() || undefined,
+      phone: formData.get('phone')?.toString().trim() || undefined,
+      sexe: rawSexe === 'HOMME' || rawSexe === 'FEMME' ? rawSexe : undefined,
+      milieuDeResidence: rawMilieu === 'URBAIN' || rawMilieu === 'RURAL' ? rawMilieu : undefined,
+      sdh: rawSdh === 'OUI' || rawSdh === 'NON' ? rawSdh : undefined,
+      country: formData.get('country')?.toString().trim() || undefined,
+      city: formData.get('city')?.toString().trim() || undefined,
+      educationLevel: formData.get('educationLevel')?.toString().trim() || undefined,
+      currentTitle: formData.get('currentTitle')?.toString().trim() || undefined,
+      organization: formData.get('organization')?.toString().trim() || undefined,
+      bio: formData.get('bio')?.toString().trim() || undefined,
+    };
+
+    const updatedUser = await usersApi.updateMe(session.accessToken, payload);
+
+    revalidatePath('/beneficiary/profile');
+    revalidatePath('/beneficiary/dashboard');
+
+    return {
+      success: true,
+      message: 'Votre profil a été mis à jour avec succès.',
+      data: updatedUser,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error?.message || 'Une erreur est survenue lors de la mise à jour du profil.',
+    };
+  }
+}
+
