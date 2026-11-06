@@ -1,100 +1,61 @@
-'use client';
-
-import React from 'react';
+import React, { Suspense } from 'react';
+import { redirect } from 'next/navigation';
+import { getSessionTokens } from '@/lib/auth/session';
+import { usersApi } from '@/lib/api/users';
+import { mentorsApi } from '@/lib/api/mentors';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Save, ShieldCheck } from 'lucide-react';
+import { MentorProfileForm } from '@/features/mentor-profile/MentorProfileForm';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default function MentorProfilePage() {
-  const [title, setTitle] = React.useState('Lead Software Architect & Tech Advisor');
-  const [company, setCompany] = React.useState('Sonatel & Africa Fintech Forum');
-  const [experienceYears, setExperienceYears] = React.useState(12);
-  const [bio, setBio] = React.useState(
-    'Passionnée par l’émergence technologique africaine, j’aide les jeunes développeurs et porteurs de projets à bâtir des systèmes résilients et scalables.'
-  );
-
+function MentorProfileSkeleton() {
   return (
-    <DashboardLayout role="MENTOR" userName="Awa Ndiaye" pageTitle="Mon Profil Mentor">
-      <PageHeader
-        title="Profil Professionnel & Paramètres Mentor"
-        description="Ces informations sont affichées sur l'annuaire public pour aider les bénéficiaires à vous identifier."
-      />
-
+    <DashboardLayout role="MENTOR" userName="Chargement..." pageTitle="Mon Profil Mentor">
       <div className="max-w-3xl space-y-6">
-        <Card className="shadow-xs">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-bold">Fiche Expert / Mentor</CardTitle>
-            <Badge className="bg-emerald-100 text-emerald-800 flex items-center gap-1 text-xs">
-              <ShieldCheck className="w-3.5 h-3.5" /> Compte Vérifié
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-4 text-xs">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="title" className="text-xs">Titre / Rôle actuel</Label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="company" className="text-xs">Entreprise / Organisation</Label>
-                <Input
-                  id="company"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="experienceYears" className="text-xs">Années d'expérience professionnelle</Label>
-              <Input
-                id="experienceYears"
-                type="number"
-                value={experienceYears}
-                onChange={(e) => setExperienceYears(Number(e.target.value))}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="bio" className="text-xs">Biographie publique</Label>
-              <Textarea
-                id="bio"
-                rows={4}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-              />
-            </div>
-
-            <div className="pt-2">
-              <Label className="text-xs mb-2 block">Secteurs d'intervention</Label>
-              <div className="flex flex-wrap gap-2">
-                {['Tech & Digital', 'Fintech', 'Cloud Computing', 'Entrepreneuriat'].map((s) => (
-                  <Badge key={s} variant="secondary" className="text-xs">
-                    {s}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex justify-end pt-2 border-t border-border">
-            <Button size="sm" className="bg-brand-primary hover:bg-brand-secondary text-white text-xs">
-              <Save className="w-3.5 h-3.5 mr-1.5" />
-              Mettre à jour mon profil
-            </Button>
-          </CardFooter>
-        </Card>
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-96" />
+        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-96 rounded-xl" />
       </div>
     </DashboardLayout>
   );
 }
 
+async function MentorProfileContent() {
+  const session = await getSessionTokens();
+
+  if (!session.isAuthenticated || !session.accessToken) {
+    redirect('/login?sessionExpired=true&callbackUrl=/mentor/profile');
+  }
+
+  const [userRes, myProfileRes] = await Promise.all([
+    usersApi.getMe(session.accessToken).catch(() => null),
+    mentorsApi.getMyProfile(session.accessToken).catch(() => null),
+  ]);
+
+  const profile = userRes?.profile;
+  const mentorFullName = profile?.firstName
+    ? `${profile.firstName} ${profile.lastName || ''}`.trim()
+    : session.userName || 'Mentor ACCEENT';
+
+  const mentorProfile = myProfileRes || userRes?.mentorProfile;
+
+  return (
+    <DashboardLayout role="MENTOR" userName={mentorFullName} pageTitle="Mon Profil Mentor">
+      <PageHeader
+        title="Profil Professionnel & Paramètres Mentor"
+        description="Ces informations sont enregistrées dans la base de données et visibles par les bénéficiaires pour le matching."
+      />
+
+      <MentorProfileForm user={userRes} mentorProfile={mentorProfile} />
+    </DashboardLayout>
+  );
+}
+
+export default function MentorProfilePage() {
+  return (
+    <Suspense fallback={<MentorProfileSkeleton />}>
+      <MentorProfileContent />
+    </Suspense>
+  );
+}

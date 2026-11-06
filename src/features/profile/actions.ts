@@ -28,6 +28,33 @@ export async function updateProfileAction(
     const rawMilieu = formData.get('milieuDeResidence')?.toString();
     const rawSdh = formData.get('sdh')?.toString();
 
+    // Traitement des listes : skills, objectives, interests
+    const parseListField = (raw: FormDataEntryValue | null): string[] | undefined => {
+      if (!raw) return undefined;
+      const str = raw.toString().trim();
+      if (!str) return undefined;
+      try {
+        const parsed = JSON.parse(str);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item) => String(item).trim()).filter(Boolean);
+        }
+      } catch {
+        // En cas de saisie libre séparée par des virgules
+        return str
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+      return undefined;
+    };
+
+    const skills = parseListField(formData.get('skills'));
+    const objectives = parseListField(formData.get('objectives'));
+    const interests = parseListField(formData.get('interests'));
+
+    const rawYears = formData.get('yearsOfExperience')?.toString()?.trim();
+    const yearsOfExperience = rawYears && !isNaN(Number(rawYears)) ? parseInt(rawYears, 10) : undefined;
+
     const payload: UpdateProfileInput = {
       firstName: formData.get('firstName')?.toString().trim() || undefined,
       lastName: formData.get('lastName')?.toString().trim() || undefined,
@@ -40,6 +67,11 @@ export async function updateProfileAction(
       educationLevel: formData.get('educationLevel')?.toString().trim() || undefined,
       currentTitle: formData.get('currentTitle')?.toString().trim() || undefined,
       organization: formData.get('organization')?.toString().trim() || undefined,
+      sector: formData.get('sector')?.toString().trim() || undefined,
+      skills: skills && skills.length > 0 ? skills : undefined,
+      objectives: objectives && objectives.length > 0 ? objectives : undefined,
+      interests: interests && interests.length > 0 ? interests : undefined,
+      yearsOfExperience,
       bio: formData.get('bio')?.toString().trim() || undefined,
     };
 

@@ -2,9 +2,11 @@ import React, { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { getSessionTokens } from '@/lib/auth/session';
 import { usersApi } from '@/lib/api/users';
+import { diagnosticsApi } from '@/lib/api/diagnostics';
+import { matchingApi } from '@/lib/api/matching';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DiagnosticWizard } from '@/features/diagnostic/DiagnosticWizard';
+import { DiagnosticPageClient } from '@/features/diagnostic/DiagnosticPageClient';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function DiagnosticSkeleton() {
@@ -26,7 +28,23 @@ async function BeneficiaryDiagnosticContent() {
     redirect('/login?sessionExpired=true&callbackUrl=/beneficiary/diagnostic');
   }
 
-  const userRes = await usersApi.getMe(session.accessToken).catch(() => null);
+  // Requêtes parallèles pour récupérer le profil, l'éligibilité, le diagnostic actuel et les recommandations
+  const [userRes, eligibilityRes, currentDiagnosticRes] = await Promise.all([
+    usersApi.getMe(session.accessToken).catch(() => null),
+    diagnosticsApi.checkEligibility(session.accessToken).catch(() => null),
+    diagnosticsApi.getCurrentDiagnostic(session.accessToken).catch(() => null),
+  ]);
+
+  let recommendations: any[] = [];
+  if (currentDiagnosticRes) {
+    try {
+      const matchRes = await matchingApi.getRecommendations(session.accessToken, { limit: 6 });
+      recommendations = matchRes.items || [];
+    } catch {
+      recommendations = [];
+    }
+  }
+
   const profile = userRes?.profile;
   const fullName = profile?.firstName
     ? `${profile.firstName} ${profile.lastName || ''}`.trim()
@@ -40,7 +58,12 @@ async function BeneficiaryDiagnosticContent() {
       />
 
       <div className="py-4">
-        <DiagnosticWizard />
+        <DiagnosticPageClient
+          userProfile={userRes}
+          eligibility={eligibilityRes}
+          currentDiagnostic={currentDiagnosticRes}
+          recommendations={recommendations}
+        />
       </div>
     </DashboardLayout>
   );
@@ -53,4 +76,3 @@ export default function BeneficiaryDiagnosticPage() {
     </Suspense>
   );
 }
-

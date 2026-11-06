@@ -8,13 +8,18 @@ import {
   USER_NAME_COOKIE,
   USER_EMAIL_COOKIE,
 } from '@/lib/auth/constants';
+import { isTokenExpired } from '@/lib/auth/token';
 
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
+  const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
   const userRole = request.cookies.get(USER_ROLE_COOKIE)?.value;
-  const isAuthenticated = Boolean(accessToken);
+
+  const isExpired = isTokenExpired(accessToken, 0);
+  const isAuthenticated = Boolean(accessToken && !isExpired);
+  const canRefresh = Boolean(refreshToken);
 
   const isAuthRoute =
     pathname === '/login' ||
@@ -22,14 +27,14 @@ export default function proxy(request: NextRequest) {
     pathname === '/forgot-password' ||
     pathname === '/reset-password';
 
-  // Si l'utilisateur accède à une page d'auth avec un signal d'expiration ou de redirection explicite,
-  // on purge impérativement les cookies pour casser immédiatement toute boucle infinie de redirection.
+  // Si l'utilisateur accède à une page d'auth avec un signal d'expiration explicite ou un token définitivement mort
   if (isAuthRoute) {
     const isForcedAuth =
       request.nextUrl.searchParams.has('sessionExpired') ||
       request.nextUrl.searchParams.has('callbackUrl') ||
       request.nextUrl.searchParams.has('redirect') ||
-      request.nextUrl.searchParams.has('logout');
+      request.nextUrl.searchParams.has('logout') ||
+      (accessToken && isExpired && !canRefresh);
 
     if (isForcedAuth) {
       const response = NextResponse.next();
@@ -50,7 +55,7 @@ export default function proxy(request: NextRequest) {
       return response;
     }
 
-    // Rediriger uniquement si les cookies sont réellement valides et qu'aucune redirection n'est demandée
+    // Rediriger vers l'espace uniquement si le token d'accès est réellement valide
     if (isAuthenticated) {
       if (userRole === 'ADMIN') {
         return NextResponse.redirect(new URL('/admin/dashboard', request.url));
@@ -68,7 +73,8 @@ export default function proxy(request: NextRequest) {
   const isAdminRoute = pathname.startsWith('/admin');
 
   if (isBeneficiaryRoute || isMentorRoute || isAdminRoute) {
-    if (!isAuthenticated) {
+    // Si aucun token valide et aucun refresh token n'est disponible, redirection vers /login
+    if (!isAuthenticated && !canRefresh) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);

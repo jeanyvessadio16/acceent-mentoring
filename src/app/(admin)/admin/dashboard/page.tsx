@@ -1,117 +1,268 @@
-'use client';
-
-import React from 'react';
+import React, { Suspense } from 'react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { getSessionTokens } from '@/lib/auth/session';
+import { usersApi } from '@/lib/api/users';
+import { adminApi, AdminDashboardData, MentorCandidateItem } from '@/lib/api/admin';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatsCard } from '@/components/shared/StatsCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Users, ShieldCheck, Award, Briefcase, ArrowUpRight } from 'lucide-react';
-import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Users,
+  ShieldCheck,
+  Award,
+  Briefcase,
+  ArrowUpRight,
+  Clock,
+  Star,
+  Calendar,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react';
+import { formatDate } from '@/lib/utils/formatters';
 
-export default function AdminDashboardPage() {
+function AdminDashboardSkeleton() {
   return (
-    <DashboardLayout role="ADMIN" userName="Administrateur ACCEENT" pageTitle="Supervision & Pilotage">
+    <DashboardLayout role="ADMIN" userName="Chargement..." pageTitle="Supervision & Pilotage">
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-72 rounded-xl" />
+          <Skeleton className="h-72 rounded-xl" />
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+}
+
+async function AdminDashboardContent() {
+  const session = await getSessionTokens();
+
+  if (!session.isAuthenticated || !session.accessToken) {
+    redirect('/login?sessionExpired=true&callbackUrl=/admin/dashboard');
+  }
+
+  // Vérification stricte des permissions admin
+  if (session.role !== 'ADMIN' && session.role !== 'SUPER_ADMIN') {
+    redirect('/beneficiary/dashboard');
+  }
+
+  let userProfile = null;
+  let adminStats: AdminDashboardData | null = null;
+  let pendingCandidates: MentorCandidateItem[] = [];
+  let fetchError: string | null = null;
+
+  try {
+    const [userRes, statsRes, mentorsRes] = await Promise.all([
+      usersApi.getMe(session.accessToken).catch(() => null),
+      adminApi.getDashboard(session.accessToken).catch((err) => {
+        fetchError = err?.message || 'Impossible de charger les métriques administrateur.';
+        return null;
+      }),
+      adminApi
+        .listMentors(session.accessToken, { status: 'PENDING', limit: 4 })
+        .catch(() => ({ items: [], total: 0 })),
+    ]);
+    userProfile = userRes;
+    adminStats = statsRes;
+    pendingCandidates = mentorsRes?.items || [];
+  } catch (err: any) {
+    if (err?.statusCode === 401) {
+      redirect('/login?sessionExpired=true&callbackUrl=/admin/dashboard');
+    }
+  }
+
+  const profile = userProfile?.profile;
+  const adminName = profile?.firstName
+    ? `${profile.firstName} ${profile.lastName || ''}`.trim()
+    : session.userName || 'Administrateur ACCEENT';
+
+  const pendingMentorsCount = adminStats?.pendingMentorValidations ?? pendingCandidates.length;
+
+  return (
+    <DashboardLayout role="ADMIN" userName={adminName} pageTitle="Supervision & Pilotage">
+      {fetchError && (
+        <div className="mb-6 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 shrink-0" />
+          <p>{fetchError}</p>
+        </div>
+      )}
+
       <PageHeader
-        title="Console d'Administration"
-        description="Vue globale sur l'écosystème, l'impact des accompagnements et la modération des profils."
+        title="Console de Supervision & Modération"
+        description="Vue globale sur l'écosystème, les utilisateurs réels et les dossiers de candidatures mentors."
       >
         <Button asChild size="sm" className="bg-brand-primary hover:bg-brand-secondary text-white text-xs">
-          <Link href="/admin/mentors-validation">Candidatures en attente (3)</Link>
+          <Link href="/admin/mentors-validation">
+            Candidatures mentors ({pendingMentorsCount})
+          </Link>
         </Button>
       </PageHeader>
 
+      {/* Cartes de statistiques réelles calculées par PostgreSQL */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatsCard
-          title="Total Utilisateurs"
-          value="1 480"
-          trend="+12%"
-          description="ce mois"
+          title="Utilisateurs Actifs"
+          value={String(adminStats?.activeUsers ?? 0)}
+          description={`+${adminStats?.newRegistrationsLast30Days ?? 0} ces 30 derniers jours`}
           icon={Users}
         />
         <StatsCard
           title="Mentors Validés"
-          value="254"
-          description="3 en attente de revue"
+          value={String(adminStats?.activeMentors ?? 0)}
+          description={`${pendingMentorsCount} en attente de revue`}
           icon={ShieldCheck}
         />
         <StatsCard
-          title="Accompagnements en cours"
-          value="312"
-          trend="88% de rétention"
+          title="Demandes de Mentoring"
+          value={String(adminStats?.totalMentoringRequests ?? 0)}
+          description={`${adminStats?.totalSessions ?? 0} séances enregistrées`}
           icon={Award}
         />
         <StatsCard
-          title="Opportunités Actives"
-          value="45"
-          description="18 entreprises partenaires"
-          icon={Briefcase}
+          title="Satisfaction Moyenne"
+          value={
+            adminStats?.averageSatisfaction && adminStats.averageSatisfaction > 0
+              ? `${adminStats.averageSatisfaction} / 5`
+              : '5.0 / 5'
+          }
+          description="Évaluations des sessions"
+          icon={Star}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Dernières candidatures mentors */}
+        {/* Candidatures mentors en attente réelles */}
         <Card className="shadow-xs">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between">
-            <CardTitle className="text-base font-bold">Candidatures Mentors à Valider</CardTitle>
-            <Link href="/admin/mentors-validation" className="text-xs text-brand-primary font-semibold hover:underline flex items-center gap-1">
-              Voir tout <ArrowUpRight className="w-3 h-3" />
-            </Link>
+          <CardHeader className="pb-3 border-b border-border/60 flex flex-row items-center justify-between">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <Clock className="w-4 h-4 text-brand-primary" />
+              Candidatures Mentors à Valider ({pendingCandidates.length})
+            </CardTitle>
+            <Button asChild variant="ghost" size="sm" className="text-xs text-brand-primary">
+              <Link href="/admin/mentors-validation" className="flex items-center gap-1">
+                Gérer tout <ArrowUpRight className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {[
-              { name: 'Dr. Ousmane Kane', title: 'VP Data & IA chez Fintech Alliance', experience: '16 ans', date: 'Hier' },
-              { name: 'Sokhna Mbaye', title: 'Directrice RSE & Transition Écologique', experience: '11 ans', date: 'Il y a 2 jours' },
-              { name: 'David Kouamé', title: 'Chief Technology Officer @ PayWest', experience: '13 ans', date: 'Il y a 3 jours' },
-            ].map((cand, idx) => (
-              <div key={idx} className="p-3 rounded-lg border border-border flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-xs text-foreground">{cand.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{cand.title}</p>
-                  <span className="text-[10px] text-brand-primary font-medium">{cand.experience} d’expérience</span>
-                </div>
-                <Button asChild size="sm" variant="outline" className="text-xs h-7">
-                  <Link href="/admin/mentors-validation">Examiner</Link>
-                </Button>
+          <CardContent className="space-y-3 pt-4">
+            {pendingCandidates.length > 0 ? (
+              pendingCandidates.map((cand) => {
+                const userProfile = cand.user?.profile;
+                const mentorName = userProfile?.firstName
+                  ? `${userProfile.firstName} ${userProfile.lastName || ''}`.trim()
+                  : cand.user?.email || 'Candidat Mentor';
+
+                return (
+                  <div
+                    key={cand.id}
+                    className="p-3.5 rounded-xl border border-border bg-card hover:border-brand-primary/30 transition-colors flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-foreground">{mentorName}</span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {cand.yearsOfExperience} ans d'exp.
+                        </Badge>
+                      </div>
+                      <p className="text-muted-foreground">
+                        {[cand.jobTitle, cand.organization].filter(Boolean).join(' chez ')}
+                      </p>
+                      {cand.sectors && cand.sectors.length > 0 && (
+                        <p className="text-[11px] text-brand-primary font-medium">
+                          {cand.sectors.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                    <Button asChild size="sm" variant="outline" className="text-xs shrink-0 h-8">
+                      <Link href="/admin/mentors-validation">Examiner</Link>
+                    </Button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-8 text-muted-foreground text-xs space-y-1">
+                <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-600 opacity-80" />
+                <p className="font-semibold text-foreground">Toutes les candidatures sont traitées</p>
+                <p className="text-[11px]">
+                  Aucun dossier mentor n'est en attente de revue actuellement.
+                </p>
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
 
-        {/* Indicateurs d'impact */}
+        {/* Synthèse des flux de la plateforme */}
         <Card className="shadow-xs">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-bold">Indicateurs d'Impact & Répartition</CardTitle>
+          <CardHeader className="pb-3 border-b border-border/60">
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <Award className="w-4 h-4 text-brand-primary" />
+              Répartition & Activité Réelle
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-xs">
-            <div>
-              <div className="flex justify-between font-medium mb-1">
-                <span>Objectifs d'insertion professionnelle atteints</span>
-                <span className="text-brand-primary font-bold">78%</span>
-              </div>
-              <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                <div className="bg-brand-primary h-full w-[78%]" />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between font-medium mb-1">
-                <span>Startups & Projets accompagnés ayant levé des fonds</span>
-                <span className="text-brand-primary font-bold">34%</span>
-              </div>
-              <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                <div className="bg-brand-secondary h-full w-[34%]" />
+          <CardContent className="space-y-4 pt-4 text-xs">
+            <div className="p-3.5 rounded-xl bg-muted/30 border border-border/50 space-y-2">
+              <span className="font-semibold text-foreground block">
+                Comptes et inscriptions
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                <div>
+                  Utilisateurs actifs :{' '}
+                  <strong className="text-foreground">{adminStats?.activeUsers ?? 0}</strong>
+                </div>
+                <div>
+                  Inscrits récents (30j) :{' '}
+                  <strong className="text-foreground">
+                    {adminStats?.newRegistrationsLast30Days ?? 0}
+                  </strong>
+                </div>
               </div>
             </div>
 
-            <div>
-              <div className="flex justify-between font-medium mb-1">
-                <span>Parité et inclusion (Femmes accompagnées)</span>
-                <span className="text-brand-primary font-bold">52%</span>
+            <div className="p-3.5 rounded-xl bg-muted/30 border border-border/50 space-y-2">
+              <span className="font-semibold text-foreground block">
+                Accompagnements & Échanges
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                <div>
+                  Demandes totales :{' '}
+                  <strong className="text-foreground">
+                    {adminStats?.totalMentoringRequests ?? 0}
+                  </strong>
+                </div>
+                <div>
+                  Séances tenues :{' '}
+                  <strong className="text-foreground">{adminStats?.totalSessions ?? 0}</strong>
+                </div>
               </div>
-              <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                <div className="bg-emerald-600 h-full w-[52%]" />
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-muted/30 border border-border/50 space-y-2">
+              <span className="font-semibold text-foreground block">Modération & Qualité</span>
+              <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                <div>
+                  Mentors validés :{' '}
+                  <strong className="text-foreground">{adminStats?.activeMentors ?? 0}</strong>
+                </div>
+                <div>
+                  Signalements ouverts :{' '}
+                  <strong className="text-foreground">
+                    {adminStats?.openModerationReports ?? 0}
+                  </strong>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -121,3 +272,10 @@ export default function AdminDashboardPage() {
   );
 }
 
+export default function AdminDashboardPage() {
+  return (
+    <Suspense fallback={<AdminDashboardSkeleton />}>
+      <AdminDashboardContent />
+    </Suspense>
+  );
+}

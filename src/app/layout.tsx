@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { SupabaseAuthListener } from "@/components/providers/SupabaseAuthListener";
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -27,6 +28,7 @@ export default function RootLayout({
       className={cn("h-full antialiased", jakarta.variable, "font-sans")}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <SupabaseAuthListener />
         {children}
       </body>
     </html>

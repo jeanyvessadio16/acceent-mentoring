@@ -24,6 +24,23 @@ export interface MentoringRequestItem {
   mentorResponse?: string | null;
   clarificationNote?: string | null;
   createdAt: string;
+  beneficiary?: {
+    id: string;
+    email: string;
+    profile?: {
+      firstName: string;
+      lastName: string;
+      avatarPath?: string | null;
+      sector?: string | null;
+      city?: string | null;
+      country?: string | null;
+      phone?: string | null;
+      bio?: string | null;
+      currentTitle?: string | null;
+      organization?: string | null;
+      educationLevel?: string | null;
+    } | null;
+  };
   mentorProfile?: {
     id: string;
     userId: string;
@@ -36,6 +53,17 @@ export interface MentoringRequestItem {
       } | null;
     };
   };
+  journey?: {
+    id: string;
+    status: string;
+    progressPercentage: number;
+  } | null;
+}
+
+export interface MentorDecisionInput {
+  decision: 'ACCEPTED' | 'REJECTED' | 'NEEDS_CLARIFICATION';
+  mentorResponse?: string;
+  clarificationNote?: string;
 }
 
 export const mentoringRequestsApi = {
@@ -50,10 +78,31 @@ export const mentoringRequestsApi = {
     });
   },
 
-  getMyRequests: async (token: string): Promise<MentoringRequestItem[]> => {
-    return apiClient<MentoringRequestItem[]>('/mentoring-requests', {
+  getMyRequests: async (
+    token: string,
+    params?: { status?: string; page?: number; limit?: number }
+  ): Promise<any> => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.page) searchParams.set('page', String(params.page));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+
+    const qs = searchParams.toString() ? `?${searchParams.toString()}` : '';
+    return apiClient<any>(`/mentoring-requests${qs}`, {
       method: 'GET',
       token,
+    });
+  },
+
+  decideRequest: async (
+    id: string,
+    data: MentorDecisionInput,
+    token: string
+  ): Promise<any> => {
+    return apiClient(`/mentoring-requests/${id}/decision`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
     });
   },
 

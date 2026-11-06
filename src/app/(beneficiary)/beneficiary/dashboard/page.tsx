@@ -31,6 +31,7 @@ import {
   Building,
   Mail,
   Phone,
+  Compass,
 } from 'lucide-react';
 import { formatDate, formatDateTime, formatSessionRange } from '@/lib/utils/formatters';
 
@@ -132,6 +133,13 @@ async function BeneficiaryDashboardContent() {
   }
 
   const profileDetails = userProfile?.profile;
+  const isProfileCompleted = Boolean(
+    profileDetails?.isCompleted ||
+      (profileDetails?.sector &&
+        (profileDetails?.skills?.length ?? 0) > 0 &&
+        (profileDetails?.objectives?.length ?? 0) > 0)
+  );
+
   const userFirstName = profileDetails?.firstName || session.userName?.split(' ')[0] || 'Bénéficiaire';
   const userFullName = profileDetails?.firstName
     ? `${profileDetails.firstName} ${profileDetails.lastName || ''}`.trim()
@@ -176,6 +184,56 @@ async function BeneficiaryDashboardContent() {
         </div>
       )}
 
+      {/* Bannière si profil incomplet */}
+      {!isProfileCompleted && (
+        <Card className="mb-6 border-amber-300 bg-linear-to-r from-amber-50 via-orange-50 to-amber-50/60 shadow-xs">
+          <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                <Target className="w-5 h-5 text-amber-600" />
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-amber-950">
+                    Complétez votre profil bénéficiaire
+                  </h3>
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                    Action requise
+                  </Badge>
+                </div>
+                <p className="text-xs text-amber-900/80 leading-relaxed max-w-2xl">
+                  Renseignez votre secteur d'activité, vos compétences et vos objectifs de mentorat pour activer le jumelage personnalisé avec nos mentors.
+                </p>
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {!profileDetails?.sector && (
+                    <Badge variant="outline" className="text-[10px] bg-white/90 text-amber-800 border-amber-300">
+                      + Secteur d'activité manquant
+                    </Badge>
+                  )}
+                  {(!profileDetails?.skills || profileDetails.skills.length === 0) && (
+                    <Badge variant="outline" className="text-[10px] bg-white/90 text-amber-800 border-amber-300">
+                      + Compétences à renseigner
+                    </Badge>
+                  )}
+                  {(!profileDetails?.objectives || profileDetails.objectives.length === 0) && (
+                    <Badge variant="outline" className="text-[10px] bg-white/90 text-amber-800 border-amber-300">
+                      + Objectifs de mentorat à définir
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <Button asChild size="sm" className="bg-amber-600 hover:bg-amber-700 text-white shrink-0 text-xs shadow-xs">
+              <Link href="/beneficiary/profile" className="flex items-center gap-1.5">
+                Compléter mon profil
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* En-tête de bienvenue */}
       <PageHeader
         title={`Bonjour, ${userFirstName} 👋`}
@@ -191,9 +249,16 @@ async function BeneficiaryDashboardContent() {
               <Link href="/beneficiary/sessions">Mes sessions</Link>
             </Button>
           )}
-          {!myObjective && (
+          {!myObjective ? (
             <Button asChild size="sm" variant="outline" className="text-xs">
               <Link href="/beneficiary/diagnostic">Faire mon diagnostic</Link>
+            </Button>
+          ) : (
+            <Button asChild size="sm" variant="outline" className="text-xs flex items-center gap-1.5">
+              <Link href="/beneficiary/diagnostic">
+                <Compass className="w-3.5 h-3.5 text-brand-primary" />
+                Mon diagnostic
+              </Link>
             </Button>
           )}
         </div>
@@ -212,16 +277,35 @@ async function BeneficiaryDashboardContent() {
                 <Badge className="bg-brand-primary text-white text-[10px]">
                   Bénéficiaire
                 </Badge>
+                {isProfileCompleted ? (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    Profil complet
+                  </Badge>
+                ) : (
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 text-amber-600" />
+                    Profil à compléter
+                  </Badge>
+                )}
                 {userProfile?.status === 'ACTIVE' && (
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
-                    Compte vérifié
+                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">
+                    Compte actif
                   </Badge>
                 )}
               </div>
 
+              {/* Secteur d'activité */}
+              {profileDetails?.sector && (
+                <p className="text-xs font-semibold text-brand-primary flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 shrink-0" />
+                  Secteur : <span className="text-foreground font-medium">{profileDetails.sector}</span>
+                </p>
+              )}
+
               {/* Titre actuel et organisation réels issus de la base */}
               {(profileDetails?.currentTitle || profileDetails?.organization) && (
-                <p className="text-xs font-semibold text-brand-primary flex items-center gap-1.5">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Briefcase className="w-3.5 h-3.5 shrink-0" />
                   {[profileDetails.currentTitle, profileDetails.organization].filter(Boolean).join(' • ')}
                 </p>
@@ -235,8 +319,33 @@ async function BeneficiaryDashboardContent() {
                 </p>
               )}
 
+              {/* Compétences réelles */}
+              {profileDetails?.skills && profileDetails.skills.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 pt-1">
+                  <span className="text-[11px] text-muted-foreground mr-1">Compétences :</span>
+                  {profileDetails.skills.slice(0, 5).map((skill: string) => (
+                    <Badge key={skill} variant="secondary" className="text-[10px] py-0 px-2 bg-brand-primary/10 text-brand-primary border-none">
+                      {skill}
+                    </Badge>
+                  ))}
+                  {profileDetails.skills.length > 5 && (
+                    <span className="text-[10px] text-muted-foreground">+{profileDetails.skills.length - 5}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Objectifs réels */}
+              {profileDetails?.objectives && profileDetails.objectives.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                  <span className="text-[11px] text-muted-foreground mr-1">Objectif :</span>
+                  <span className="text-xs text-foreground/90 font-medium">
+                    {profileDetails.objectives[0]}
+                  </span>
+                </div>
+              )}
+
               {/* Coordonnées */}
-              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-1">
                 {userEmail && (
                   <span className="flex items-center gap-1">
                     <Mail className="w-3.5 h-3.5" />
@@ -284,9 +393,9 @@ async function BeneficiaryDashboardContent() {
                 </Badge>
               )}
             </div>
-            <Button asChild size="sm" variant="outline" className="text-xs mt-1">
+            <Button asChild size="sm" variant={isProfileCompleted ? "outline" : "default"} className={`text-xs mt-1 ${!isProfileCompleted ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}`}>
               <Link href="/beneficiary/profile" className="flex items-center gap-1">
-                Modifier mon profil
+                {isProfileCompleted ? 'Modifier mon profil' : 'Compléter mon profil'}
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </Button>

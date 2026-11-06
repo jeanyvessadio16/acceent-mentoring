@@ -1,3 +1,6 @@
+import { isTokenExpired } from '@/lib/auth/token';
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from '@/lib/auth/constants';
+
 export interface ApiErrorResponse {
   statusCode: number;
   message: string | string[];
@@ -29,6 +32,101 @@ const getApiBaseUrl = () => {
 export interface ApiClientOptions extends RequestInit {
   token?: string;
   timeoutMs?: number;
+  _isRetry?: boolean;
+}
+
+/**
+ * Renouvelle l'Access Token de manière proactive via le Refresh Token
+ * AVANT d'envoyer toute requête à l'API NestJS.
+ */
+async function renewTokenBeforeRequest(baseUrl: string): Promise<string | null> {
+  // Contexte A : Client navigateur
+  if (typeof window !== 'undefined') {
+    try {
+      const match = document.cookie.match(new RegExp('(^|;\\s*)' + REFRESH_TOKEN_COOKIE + '=([^;]*)'));
+      const cookieRefreshToken = match ? decodeURIComponent(match[2]) : undefined;
+
+      // 1. Tenter via le client Supabase navigateur
+      const { getSupabaseBrowserClient } = await import('@/lib/supabase/client');
+      const supabase = getSupabaseBrowserClient();
+
+      const { data, error } = cookieRefreshToken
+        ? await supabase.auth.refreshSession({ refresh_token: cookieRefreshToken })
+        : await supabase.auth.refreshSession();
+
+      if (!error && data.session?.access_token) {
+        const freshAccessToken = data.session.access_token;
+        // Synchroniser en arrière-plan les cookies HTTP
+        fetch('/api/auth/sync-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'TOKEN_REFRESHED',
+            accessToken: freshAccessToken,
+            refreshToken: data.session.refresh_token,
+            expiresAt: data.session.expires_at,
+          }),
+        }).catch(() => {});
+
+        return freshAccessToken;
+      }
+
+      // 2. Si échec Supabase client, appeler directement l'endpoint /auth/refresh du backend NestJS
+      if (cookieRefreshToken) {
+        const res = await fetch(`${baseUrl}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: cookieRefreshToken }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const refreshed = json.data || json;
+          if (refreshed?.accessToken) {
+            fetch('/api/auth/sync-session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'TOKEN_REFRESHED',
+                accessToken: refreshed.accessToken,
+                refreshToken: refreshed.refreshToken,
+                expiresAt: refreshed.expiresAt,
+              }),
+            }).catch(() => {});
+            return refreshed.accessToken;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[apiClient] Renouvellement proactif navigateur échoué:', err);
+    }
+  } else {
+    // Contexte B : Serveur (Server Action / Route Handler / Server Component)
+    try {
+      const { cookies } = await import('next/headers');
+      const cookieStore = await cookies();
+      const serverRefreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value;
+
+      if (serverRefreshToken) {
+        const res = await fetch(`${baseUrl}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: serverRefreshToken }),
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const refreshed = json.data || json;
+          if (refreshed?.accessToken) {
+            return refreshed.accessToken;
+          }
+        }
+      }
+    } catch {
+      // Contexte où cookies() n'est pas accessible
+    }
+  }
+
+  return null;
 }
 
 export async function apiClient<T>(
@@ -39,13 +137,38 @@ export async function apiClient<T>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${baseUrl}${cleanEndpoint}`;
 
+  const isAuthEndpoint =
+    cleanEndpoint.startsWith('/auth/login') ||
+    cleanEndpoint.startsWith('/auth/register') ||
+    cleanEndpoint.startsWith('/auth/refresh') ||
+    cleanEndpoint.startsWith('/auth/forgot-password') ||
+    cleanEndpoint.startsWith('/auth/reset-password');
+
+  // Résolution du token actif
+  let activeToken = options.token;
+
+  if (!activeToken && typeof document !== 'undefined') {
+    const match = document.cookie.match(new RegExp('(^|;\\s*)' + ACCESS_TOKEN_COOKIE + '=([^;]*)'));
+    if (match) activeToken = decodeURIComponent(match[2]);
+  }
+
+  // RÈGLE CRUCIALE : Renouvellement proactif obligatoire.
+  // Le client doit renouveler son Access Token via le Refresh Token
+  // AVANT d'envoyer une requête expirée à l'API NestJS.
+  if (!isAuthEndpoint && activeToken && isTokenExpired(activeToken, 60)) {
+    const freshToken = await renewTokenBeforeRequest(baseUrl);
+    if (freshToken) {
+      activeToken = freshToken;
+    }
+  }
+
   const headers = new Headers(options.headers);
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
-  if (options.token) {
-    headers.set('Authorization', `Bearer ${options.token}`);
+  if (activeToken) {
+    headers.set('Authorization', `Bearer ${activeToken}`);
   }
 
   const timeoutMs = options.timeoutMs ?? 15000;
@@ -98,6 +221,27 @@ export async function apiClient<T>(
   }
 
   if (!response.ok) {
+    // Filet de sécurité 401 si un token venait tout juste d'être révoqué en cours de requête
+    if (
+      response.status === 401 &&
+      !options._isRetry &&
+      !isAuthEndpoint &&
+      typeof window !== 'undefined'
+    ) {
+      try {
+        const freshToken = await renewTokenBeforeRequest(baseUrl);
+        if (freshToken) {
+          return apiClient<T>(endpoint, {
+            ...options,
+            token: freshToken,
+            _isRetry: true,
+          });
+        }
+      } catch {
+        // Laisser l'erreur 401 se propager
+      }
+    }
+
     let errorMessage = 'Une erreur est survenue lors de la communication avec le serveur.';
 
     if (isJson && data) {

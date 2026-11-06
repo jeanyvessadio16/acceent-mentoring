@@ -1,14 +1,15 @@
-'use client';
-
-import React, { useEffect, useState } from 'react';
+import React, { Suspense } from 'react';
+import { redirect } from 'next/navigation';
+import { getSessionTokens } from '@/lib/auth/session';
+import { usersApi } from '@/lib/api/users';
+import { mentorsApi } from '@/lib/api/mentors';
+import { diagnosticsApi } from '@/lib/api/diagnostics';
+import { matchingApi } from '@/lib/api/matching';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { MentorCard } from '@/components/shared/MentorCard';
-import { MentorFilterBar } from '@/features/mentor-search/MentorFilterBar';
-import { EmptyState } from '@/components/shared/EmptyState';
+import { BeneficiaryMentorsDirectory } from '@/features/mentor-search/BeneficiaryMentorsDirectory';
 import { MentorProfile } from '@/types';
-import { mentorsApi } from '@/lib/api/mentors';
-import { Users, Loader2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function mapApiMentor(m: any): MentorProfile {
   return {
@@ -39,84 +40,75 @@ function mapApiMentor(m: any): MentorProfile {
   };
 }
 
-export default function BeneficiaryMentorsPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSector, setSelectedSector] = useState('');
-  const [mentors, setMentors] = useState<MentorProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    let isCancelled = false;
-    setIsLoading(true);
-
-    mentorsApi
-      .searchMentors({
-        search: searchTerm.trim() || undefined,
-        sector: selectedSector || undefined,
-      })
-      .then((res) => {
-        if (!isCancelled) {
-          const list = Array.isArray(res) ? res : res?.items || [];
-          setMentors(list.map(mapApiMentor));
-        }
-      })
-      .catch((err) => {
-        console.error('Erreur chargement mentors:', err);
-        if (!isCancelled) {
-          setMentors([]);
-        }
-      })
-      .finally(() => {
-        if (!isCancelled) setIsLoading(false);
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [searchTerm, selectedSector]);
-
+function MentorsSkeleton() {
   return (
-    <DashboardLayout role="BENEFICIARY" pageTitle="Trouver un Mentor">
-      <PageHeader
-        title="Annuaire des Mentors & Experts"
-        description="Trouvez le mentor idéal pour vous guider selon votre domaine, vos ambitions et vos objectifs de carrière."
-      />
-
+    <DashboardLayout role="BENEFICIARY" userName="Chargement..." pageTitle="Trouver un Mentor">
       <div className="space-y-6">
-        <MentorFilterBar
-          onSearchChange={setSearchTerm}
-          onSectorChange={setSelectedSector}
-          selectedSector={selectedSector}
-        />
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">
-            <Loader2 className="w-5 h-5 animate-spin mr-2" />
-            Chargement des mentors validés...
-          </div>
-        ) : mentors.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mentors.map((mentor) => (
-              <MentorCard
-                key={mentor.id}
-                mentor={mentor}
-                baseHref="/beneficiary/mentors"
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            title="Aucun mentor disponible"
-            description="Aucun profil mentor validé ne correspond à ces critères actuellement. De nouveaux mentors sont régulièrement validés par nos équipes."
-            icon={Users}
-            actionLabel={searchTerm || selectedSector ? 'Réinitialiser les filtres' : undefined}
-            onActionClick={() => {
-              setSearchTerm('');
-              setSelectedSector('');
-            }}
-          />
-        )}
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-96" />
+        <Skeleton className="h-12 rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
+        </div>
       </div>
     </DashboardLayout>
+  );
+}
+
+async function BeneficiaryMentorsContent() {
+  const session = await getSessionTokens();
+
+  if (!session.isAuthenticated || !session.accessToken) {
+    redirect('/login?sessionExpired=true&callbackUrl=/beneficiary/mentors');
+  }
+
+  // Requêtes parallèles pour récupérer le profil, tous les mentors, le diagnostic actif et le matching
+  const [userRes, mentorsRes, currentDiagnosticRes] = await Promise.all([
+    usersApi.getMe(session.accessToken).catch(() => null),
+    mentorsApi.searchMentors().catch(() => []),
+    diagnosticsApi.getCurrentDiagnostic(session.accessToken).catch(() => null),
+  ]);
+
+  let recommendations: any[] = [];
+  if (currentDiagnosticRes) {
+    try {
+      const matchRes = await matchingApi.getRecommendations(session.accessToken, { limit: 12 });
+      recommendations = matchRes.items || [];
+    } catch {
+      recommendations = [];
+    }
+  }
+
+  const rawList = Array.isArray(mentorsRes) ? mentorsRes : mentorsRes?.items || [];
+  const allMentors = rawList.map(mapApiMentor);
+
+  const profile = userRes?.profile;
+  const fullName = profile?.firstName
+    ? `${profile.firstName} ${profile.lastName || ''}`.trim()
+    : session.userName || 'Bénéficiaire ACCEENT';
+
+  return (
+    <DashboardLayout role="BENEFICIARY" userName={fullName} pageTitle="Trouver un Mentor">
+      <PageHeader
+        title="Annuaire des Mentors & Matching Recommandé"
+        description="Découvrez les mentors recommandés par notre algorithme selon votre diagnostic ou explorez l'annuaire complet."
+      />
+
+      <BeneficiaryMentorsDirectory
+        allMentors={allMentors}
+        recommendations={recommendations}
+        currentDiagnostic={currentDiagnosticRes}
+      />
+    </DashboardLayout>
+  );
+}
+
+export default function BeneficiaryMentorsPage() {
+  return (
+    <Suspense fallback={<MentorsSkeleton />}>
+      <BeneficiaryMentorsContent />
+    </Suspense>
   );
 }
