@@ -17,6 +17,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/shared/Logo';
 import { logoutAction } from '@/features/auth/actions';
 
 interface SidebarProps {
@@ -127,10 +128,10 @@ export function Sidebar({ role, userName }: SidebarProps) {
     <aside className="w-64 border-r border-border bg-sidebar h-screen sticky top-0 flex flex-col justify-between shrink-0">
       <div>
         {/* Brand header */}
-        <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
+        <div className="h-16 flex items-center justify-between px-5 border-b border-sidebar-border">
           <Link href={homeHref} className="flex items-center gap-2">
-            <span className="font-bold text-xl text-brand-primary">ACCEENT</span>
-            <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-brand-primary/10 text-brand-primary">
+            <Logo variant="full" size="sm" priority />
+            <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-brand-primary/10 text-brand-primary border border-brand-primary/20">
               {role === 'ADMIN' ? 'Admin' : role === 'MENTOR' ? 'Mentor' : 'Espace'}
             </span>
           </Link>

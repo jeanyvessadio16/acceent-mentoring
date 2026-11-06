@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { Logo } from '@/components/shared/Logo';
 
 export function Footer() {
   return (
@@ -10,7 +11,9 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Marque */}
           <div className="space-y-3">
-            <span className="font-bold text-xl text-brand-primary">ACCEENT</span>
+            <Link href="/" className="inline-block hover:opacity-90 transition-opacity">
+              <Logo variant="full" size="md" />
+            </Link>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Plateforme panafricaine de mentoring, de développement des compétences, d'opportunités et de progression de carrière.
             </p>

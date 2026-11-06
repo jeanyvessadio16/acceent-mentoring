@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Logo } from '@/components/shared/Logo';
 import { forgotPasswordAction, ActionState } from '@/features/auth/actions';
 
 export default function ForgotPasswordPage() {
@@ -18,10 +19,8 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-brand-surface">
       <div className="mb-6 text-center">
-        <Link href="/" className="inline-block">
-          <span className="text-3xl font-bold tracking-tight text-brand-primary">
-            ACCEENT
-          </span>
+        <Link href="/" className="inline-block hover:opacity-90 transition-opacity">
+          <Logo variant="full" size="lg" priority />
         </Link>
       </div>
 
