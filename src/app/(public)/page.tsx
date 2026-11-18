@@ -20,7 +20,7 @@ import { Footer } from "@/components/navigation/Footer";
 
 const STATS = [
   { value: "500+", label: "Mentors experts" },
-  { value: "2 000+", label: "Bénéficiaires accompagnés" },
+  { value: "1 000+", label: "Bénéficiaires accompagnés" },
   { value: "15+", label: "Secteurs représentés" },
   { value: "8 pays", label: "Présence en Afrique" },
 ];
