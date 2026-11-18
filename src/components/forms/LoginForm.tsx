@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 import { loginSchema, type LoginFormData } from "@/lib/schemas/auth";
+import { loginAction } from "@/lib/actions/auth";
 import { ROUTES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +21,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, className }: LoginFormProps) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -48,16 +51,31 @@ export function LoginForm({ onSuccess, className }: LoginFormProps) {
     setFeedback(null);
 
     try {
-      // Simulation d'authentification sécurisée
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const res = await loginAction(data);
 
-      setFeedback({
-        type: "success",
-        message: "Connexion réussie. Redirection en cours...",
-      });
+      if (res.success) {
+        setFeedback({
+          type: "success",
+          message: res.message || "Connexion réussie. Redirection en cours...",
+        });
 
-      if (onSuccess) {
-        onSuccess(data);
+        if (onSuccess) {
+          onSuccess(data);
+        }
+
+        // Redirection contextuelle selon le rôle et l'état du profil
+        const destination =
+          res.redirectUrl ||
+          res.dashboardUrl ||
+          ROUTES.DASHBOARDS.BENEFICIAIRE;
+
+        router.push(destination);
+        router.refresh();
+      } else {
+        setFeedback({
+          type: "error",
+          message: res.error || "Identifiants invalides ou problème de connexion.",
+        });
       }
     } catch {
       setFeedback({

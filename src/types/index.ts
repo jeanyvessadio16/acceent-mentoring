@@ -197,3 +197,52 @@ export interface ChatMessage {
   attachmentUrl?: string;
   createdAt: string;
 }
+
+// --- Espace Administration ---
+export interface AdminDashboardStats {
+  totalUsers: number;
+  totalBeneficiaries: number;
+  totalMentors: number;
+  totalPartners: number;
+  pendingValidations: number;
+  activePrograms: number;
+  completedSessions: number;
+  satisfactionRate: number;
+  demographics: {
+    femalePercentage: number;
+    malePercentage: number;
+    ruralPercentage: number;
+    urbanPercentage: number;
+    sdhPercentage: number;
+    averageAge: number;
+  };
+}
+
+export interface PendingValidationItem {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: 'mentor' | 'expert';
+  title: string;
+  organization?: string;
+  yearsOfExperience: number;
+  expertises: string[];
+  submittedAt: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export interface RecentAdminActivity {
+  id: string;
+  type:
+    | 'user_registered'
+    | 'mentor_applied'
+    | 'mentor_approved'
+    | 'session_held'
+    | 'opportunity_published';
+  title: string;
+  description: string;
+  timestamp: string;
+  userRole?: string;
+}

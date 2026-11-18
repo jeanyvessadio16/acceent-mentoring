@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, CheckCircle2, AlertCircle, Mail } from "lucide-react";
 
 import { forgotPasswordSchema, type ForgotPasswordFormData } from "@/lib/schemas/auth";
+import { forgotPasswordAction } from "@/lib/actions/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -37,12 +38,14 @@ export function ForgotPasswordForm({ onSuccess, className }: ForgotPasswordFormP
     setErrorMessage(null);
 
     try {
-      // Simulation d'envoi du lien sécurisé
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setIsSubmitted(true);
-
-      if (onSuccess) {
-        onSuccess(data.email);
+      const res = await forgotPasswordAction(data);
+      if (res.success) {
+        setIsSubmitted(true);
+        if (onSuccess) {
+          onSuccess(data.email);
+        }
+      } else {
+        setErrorMessage(res.error || "Une erreur est survenue lors de l'envoi de la demande.");
       }
     } catch {
       setErrorMessage("Une erreur est survenue lors de l'envoi de la demande. Veuillez réessayer.");

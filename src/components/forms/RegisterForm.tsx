@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { registerSchema, type RegisterFormData } from "@/lib/schemas/auth";
+import { registerAction } from "@/lib/actions/auth";
 import { ROUTES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -161,18 +162,24 @@ export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
     setFeedback(null);
 
     try {
-      // Simulation d'appel API d'inscription
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const res = await registerAction(data);
 
-      setFeedback({
-        type: "success",
-        message: isValidationRequired
-          ? "Compte créé avec succès ! Votre candidature est soumise pour validation par l'équipe administrative."
-          : "Compte créé avec succès ! Un lien de vérification vous a été envoyé par email.",
-      });
+      if (res.success) {
+        setFeedback({
+          type: "success",
+          message: isValidationRequired
+            ? "Compte créé avec succès ! Votre candidature est soumise pour validation par l'équipe administrative."
+            : (res.message || "Compte créé avec succès ! Un lien de vérification vous a été envoyé par email."),
+        });
 
-      if (onSuccess) {
-        onSuccess(data);
+        if (onSuccess) {
+          onSuccess(data);
+        }
+      } else {
+        setFeedback({
+          type: "error",
+          message: res.error || "Une erreur est survenue lors de l'inscription.",
+        });
       }
     } catch {
       setFeedback({
