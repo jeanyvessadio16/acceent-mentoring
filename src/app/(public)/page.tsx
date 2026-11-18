@@ -13,6 +13,8 @@ import {
   Calendar,
 } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
+import { Navbar } from "@/components/navigation/Navbar";
+import { Footer } from "@/components/navigation/Footer";
 
 // --- Données statiques validées par le projet ---
 
@@ -451,6 +453,7 @@ function CtaSection() {
 export default function HomePage() {
   return (
     <>
+      <Navbar />
       <HeroSection />
       <StatsSection />
       <PillarsSection />
@@ -458,6 +461,7 @@ export default function HomePage() {
       <AudienceSection />
       <FeaturesHighlight />
       <CtaSection />
+      <Footer />
     </>
   );
 }
