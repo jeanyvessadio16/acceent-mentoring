@@ -18,6 +18,12 @@ export const ROUTES = {
     VERIFY_ACCOUNT: '/verify',
   },
 
+  // Légal & conformité
+  LEGAL: {
+    CGU: '/cgu',
+    PRIVACY: '/privacy',
+  },
+
   // Espace Bénéficiaire
   BENEFICIARY: {
     DASHBOARD: '/beneficiary/dashboard',

@@ -16,6 +16,10 @@ export interface User {
   country?: string;
   avatarUrl?: string;
   isVerified: boolean;
+  age?: number;
+  sexe?: 'Femme' | 'Homme';
+  milieuResidence?: 'Rural' | 'Urbain';
+  sdh?: 'Oui' | 'Non';
   createdAt: string;
   updatedAt: string;
 }

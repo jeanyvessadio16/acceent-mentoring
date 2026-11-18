@@ -13,6 +13,10 @@ const FOOTER_LINKS = {
     { label: "Devenir mentor", href: ROUTES.MENTOR.APPLICATION },
     { label: "Se connecter", href: ROUTES.AUTH.LOGIN },
   ],
+  "Légal": [
+    { label: "Conditions Générales (CGU)", href: ROUTES.LEGAL.CGU },
+    { label: "Données personnelles", href: ROUTES.LEGAL.PRIVACY },
+  ],
 };
 
 export function Footer() {
