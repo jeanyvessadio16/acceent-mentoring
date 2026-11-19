@@ -10,7 +10,7 @@ const FOOTER_LINKS = {
   ],
   "Rejoindre": [
     { label: "S'inscrire", href: ROUTES.AUTH.REGISTER },
-    { label: "Devenir mentor", href: ROUTES.MENTOR.APPLICATION },
+    { label: "Devenir mentor", href: `${ROUTES.AUTH.REGISTER}?role=mentor` },
     { label: "Se connecter", href: ROUTES.AUTH.LOGIN },
   ],
   "Légal": [
@@ -23,13 +23,13 @@ export function Footer() {
   return (
     <footer className="bg-primary text-white mt-auto">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-8">
           {/* Brand */}
           <div className="sm:col-span-2 md:col-span-2">
             <div className="flex items-center gap-3 mb-4">
               <Image
                 src="/logo/Logo Mentor_plateforme.png"
-                alt="MentorPro — Apprendre · Évoluer · Réussir"
+                alt="ACCEENT Mentoring — Apprendre · Évoluer · Réussir"
                 width={160}
                 height={55}
                 className="h-12 w-auto object-contain brightness-0 invert"
@@ -62,7 +62,7 @@ export function Footer() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-white/15 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/50">
-          <p>© 2025 ACCEENT Mentoring. Tous droits réservés.</p>
+          <p>© 2026 ACCEENT Mentoring. Tous droits réservés.</p>
           <p>Sénégal & Afrique de l&apos;Ouest</p>
         </div>
       </div>

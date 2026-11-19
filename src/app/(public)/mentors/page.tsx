@@ -34,6 +34,7 @@ interface PublicMentorCard {
   typesMentoring: string | null;
   biographie: string | null;
   photoUrl: string | null;
+  isAvailable: boolean;
   user:
     | {
         nom: string;
@@ -55,10 +56,10 @@ export default async function PublicMentorsCatalogPage() {
   const { data } = await adminDb
     .from("MentorProfile")
     .select(
-      "id, fonction, organisation, anneesExperience, expertises, secteurs, langues, typesMentoring, biographie, photoUrl, user:User!userId (nom, prenom, pays)"
+      "id, fonction, organisation, anneesExperience, expertises, secteurs, langues, typesMentoring, biographie, photoUrl, isAvailable, user:User!userId (nom, prenom, pays)"
     )
     .eq("statutValidation", "ACTIVE")
-    .eq("isAvailable", true)
+    .order("isAvailable", { ascending: false })
     .order("anneesExperience", { ascending: false });
 
   const mentors = (data as PublicMentorCard[] | null) ?? [];
@@ -141,23 +142,39 @@ export default async function PublicMentorsCatalogPage() {
               return (
                 <article
                   key={mentor.id}
-                  className="bg-white rounded-3xl border border-border shadow-xs p-6 flex flex-col justify-between gap-5 hover:border-primary/40 transition-colors"
+                  className="bg-white rounded-3xl border border-border shadow-xs overflow-hidden flex flex-col hover:border-primary/40 hover:shadow-md transition-all"
                 >
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3.5">
-                      {safePhotoUrl ? (
-                        <img
-                          src={safePhotoUrl}
-                          alt={fullName}
-                          className="w-14 h-14 rounded-2xl object-cover border border-border shrink-0"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-2xl bg-primary text-white font-bold text-lg flex items-center justify-center shrink-0">
-                          {initials}
-                        </div>
-                      )}
-                      <div className="min-w-0 space-y-1">
-                        <h2 className="text-base font-bold text-foreground truncate">
+                  {/* Visuel portrait agrandi */}
+                  <div className="relative h-56 w-full bg-slate-100 overflow-hidden shrink-0">
+                    {safePhotoUrl ? (
+                      <img
+                        src={safePhotoUrl}
+                        alt={fullName}
+                        className="h-full w-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-primary to-primary/80 text-white font-bold text-4xl flex items-center justify-center">
+                        {initials}
+                      </div>
+                    )}
+                    <span
+                      className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-[11px] font-semibold shadow-xs backdrop-blur-xs ${
+                        mentor.isAvailable
+                          ? "bg-emerald-50/95 text-emerald-700 border border-emerald-200/80"
+                          : "bg-slate-100/95 text-slate-700 border border-slate-200/80"
+                      }`}
+                    >
+                      {mentor.isAvailable
+                        ? "Disponible"
+                        : "Temporairement indisponible"}
+                    </span>
+                  </div>
+
+                  {/* Contenu de la carte */}
+                  <div className="p-6 flex-1 flex flex-col justify-between gap-5">
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <h2 className="text-lg font-bold text-foreground truncate">
                           {fullName}
                         </h2>
                         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
@@ -169,7 +186,7 @@ export default async function PublicMentorsCatalogPage() {
                               : ""}
                           </span>
                         </p>
-                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground pt-0.5">
                           {userObj?.pays && (
                             <span className="inline-flex items-center gap-1">
                               <MapPin className="h-3 w-3" />
@@ -184,50 +201,50 @@ export default async function PublicMentorsCatalogPage() {
                           )}
                         </div>
                       </div>
+
+                      {mentor.biographie && (
+                        <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                          {mentor.biographie}
+                        </p>
+                      )}
+
+                      {expertises.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {expertises.slice(0, 4).map((exp) => (
+                            <span
+                              key={exp}
+                              className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-primary/8 text-primary"
+                            >
+                              {exp}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {langues.length > 0 && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <Globe className="h-3.5 w-3.5 shrink-0" />
+                          <span>{langues.join(", ")}</span>
+                        </div>
+                      )}
                     </div>
 
-                    {mentor.biographie && (
-                      <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                        {mentor.biographie}
-                      </p>
-                    )}
-
-                    {expertises.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {expertises.slice(0, 4).map((exp) => (
-                          <span
-                            key={exp}
-                            className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-primary/8 text-primary"
-                          >
-                            {exp}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {langues.length > 0 && (
-                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <Globe className="h-3.5 w-3.5 shrink-0" />
-                        <span>{langues.join(", ")}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-4 border-t border-border/70 flex items-center justify-between gap-3">
-                    <span className="text-[11px] font-semibold text-secondary">
-                      {mentor.typesMentoring === "COLLECTIF"
-                        ? "Mentoring collectif"
-                        : mentor.typesMentoring === "LES_DEUX"
-                        ? "Individuel & Collectif"
-                        : "Mentoring individuel"}
-                    </span>
-                    <Link
-                      href={`/mentors/${mentor.id}`}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors"
-                    >
-                      <span>Voir le profil</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
+                    <div className="pt-4 border-t border-border/70 flex items-center justify-between gap-3">
+                      <span className="text-[11px] font-semibold text-secondary">
+                        {mentor.typesMentoring === "COLLECTIF"
+                          ? "Mentoring collectif"
+                          : mentor.typesMentoring === "LES_DEUX"
+                          ? "Individuel & Collectif"
+                          : "Mentoring individuel"}
+                      </span>
+                      <Link
+                        href={`/mentors/${mentor.id}`}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors"
+                      >
+                        <span>Voir le profil</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
                   </div>
                 </article>
               );

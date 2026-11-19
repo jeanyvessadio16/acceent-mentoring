@@ -331,7 +331,14 @@ export async function updateUserStatusAction(
             updatedAt: now,
           };
 
-    await supabase.from("MentorProfile").update(mentorPatch).eq("userId", userId);
+    const { error: mentorError } = await supabase
+      .from("MentorProfile")
+      .update(mentorPatch)
+      .eq("userId", userId);
+
+    if (mentorError) {
+      console.error("Erreur mise à jour MentorProfile :", mentorError.message);
+    }
 
     // 4. Synchroniser le statut dans user_metadata Supabase Auth (best-effort)
     if (targetUser?.supabaseUid) {

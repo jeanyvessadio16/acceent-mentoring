@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -157,6 +157,20 @@ export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
   const selectedSectors = watch("secteurs") || [];
   const selectedExpertises = watch("expertises") || [];
   const biographieValue = watch("biographie") || "";
+
+  useEffect(() => {
+    const roleParam = new URLSearchParams(window.location.search)
+      .get("role")
+      ?.toLowerCase();
+    if (
+      roleParam === "beneficiary" ||
+      roleParam === "mentor" ||
+      roleParam === "expert" ||
+      roleParam === "partner"
+    ) {
+      setValue("accountType", roleParam);
+    }
+  }, [setValue]);
 
   const isValidationRequired =
     selectedAccountType === "mentor" || selectedAccountType === "expert";

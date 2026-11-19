@@ -473,7 +473,7 @@ export async function getActiveMentorsCatalogAction(): Promise<
       `
       )
       .eq("statutValidation", "ACTIVE")
-      .eq("isAvailable", true)
+      .order("isAvailable", { ascending: false })
       .order("anneesExperience", { ascending: false });
 
     if (error || !data) {

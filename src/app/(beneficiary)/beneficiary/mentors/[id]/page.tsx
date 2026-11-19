@@ -35,6 +35,7 @@ export default async function BeneficiaryMentorDetailPage({
   const fullName = `${mentorRecord.prenom} ${mentorRecord.nom}`.trim() || "Mentor ACCEENT";
   const initials =
     `${mentorRecord.prenom?.[0] || ""}${mentorRecord.nom?.[0] || "M"}`.toUpperCase() || "M";
+  const safePhotoUrl = sanitizeExternalUrl(mentorRecord.photoUrl);
 
   return (
     <div className="space-y-6">
@@ -51,15 +52,15 @@ export default async function BeneficiaryMentorDetailPage({
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-border shadow-xs space-y-6">
         {/* En-tête du mentor */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-          <div className="flex items-center gap-4">
-            {mentorRecord.photoUrl ? (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+            {safePhotoUrl ? (
               <img
-                src={mentorRecord.photoUrl}
+                src={safePhotoUrl}
                 alt={fullName}
-                className="w-16 h-16 rounded-2xl object-cover border border-border shrink-0"
+                className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl object-cover object-top border-2 border-border shadow-sm shrink-0"
               />
             ) : (
-              <div className="w-16 h-16 rounded-2xl bg-primary text-white font-bold text-xl flex items-center justify-center shrink-0">
+              <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-primary text-white font-bold text-3xl sm:text-4xl flex items-center justify-center shadow-sm shrink-0">
                 {initials}
               </div>
             )}

@@ -107,26 +107,26 @@ export default async function MentorProfileDetailPage({
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
           <Link
-            href={ROUTES.DASHBOARDS.BENEFICIAIRE}
+            href={ROUTES.MENTORS_CATALOG}
             className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Retour à mon tableau de bord</span>
+            <span>Retour au catalogue des mentors</span>
           </Link>
         </div>
 
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-border shadow-xs space-y-6">
           {/* En-tête du mentor */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
               {safePhotoUrl ? (
                 <img
                   src={safePhotoUrl}
                   alt={fullName}
-                  className="w-16 h-16 rounded-2xl object-cover border border-border shrink-0"
+                  className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl object-cover object-top border-2 border-border shadow-sm shrink-0"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-2xl bg-primary text-white font-bold text-xl flex items-center justify-center shrink-0">
+                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-primary text-white font-bold text-3xl sm:text-4xl flex items-center justify-center shadow-sm shrink-0">
                   {initials}
                 </div>
               )}

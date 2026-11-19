@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -9,21 +10,33 @@ import {
   Star,
   CheckCircle,
   TrendingUp,
-  MessageSquare,
+  UserCheck,
   Calendar,
 } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
-import { Navbar } from "@/components/navigation/Navbar";
-import { Footer } from "@/components/navigation/Footer";
+import {
+  getPublicHomeStats,
+  type PublicHomeStats,
+} from "@/lib/supabase/public-stats";
 
-// --- Données statiques validées par le projet ---
-
-const STATS = [
-  { value: "500+", label: "Mentors experts" },
-  { value: "1 000+", label: "Bénéficiaires accompagnés" },
-  { value: "15+", label: "Secteurs représentés" },
-  { value: "8 pays", label: "Présence en Afrique" },
-];
+export const metadata: Metadata = {
+  title: "ACCEENT Mentoring | Plateforme de mentoring, compétences et opportunités",
+  description:
+    "ACCEENT connecte jeunes, femmes, professionnels et entrepreneurs avec des mentors experts, des masterclasses et des opportunités pour réussir en Afrique et à l'international.",
+  openGraph: {
+    title: "ACCEENT Mentoring | Accélérez votre parcours avec les bons mentors",
+    description:
+      "Plateforme digitale d'accompagnement, diagnostic de compétences, masterclasses et opportunités en Afrique et à l'international.",
+    type: "website",
+    locale: "fr_FR",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ACCEENT Mentoring",
+    description:
+      "Accélérez votre parcours avec des mentors experts, masterclasses et opportunités.",
+  },
+};
 
 const PILLARS = [
   {
@@ -76,7 +89,7 @@ const AUDIENCE_CARDS = [
     description:
       "Devenez mentor et transmettez votre expertise tout en élargissant votre réseau de haut niveau.",
     cta: "Devenir mentor",
-    href: ROUTES.MENTOR.APPLICATION,
+    href: `${ROUTES.AUTH.REGISTER}?role=mentor`,
   },
   {
     title: "Porteurs de projets",
@@ -91,25 +104,29 @@ const HOW_IT_WORKS = [
   {
     step: "01",
     title: "Créez votre profil",
-    description: "Inscrivez-vous et renseignez votre parcours, vos objectifs et vos besoins en quelques minutes.",
+    description:
+      "Inscrivez-vous et renseignez votre parcours, vos objectifs et vos besoins en quelques minutes.",
     icon: Users,
   },
   {
     step: "02",
     title: "Passez le diagnostic",
-    description: "Un questionnaire ciblé analyse votre situation et identifie les mentors les plus adaptés.",
+    description:
+      "Un questionnaire ciblé analyse votre situation et identifie les mentors les plus adaptés.",
     icon: Target,
   },
   {
     step: "03",
     title: "Choisissez votre mentor",
-    description: "Consultez les profils recommandés, explorez leurs expertises et envoyez votre demande.",
+    description:
+      "Consultez les profils recommandés, explorez leurs expertises et envoyez votre demande.",
     icon: Star,
   },
   {
     step: "04",
     title: "Démarrez votre parcours",
-    description: "Planifiez vos sessions, suivez vos objectifs et progressez avec un accompagnement structuré.",
+    description:
+      "Planifiez vos sessions, suivez vos objectifs et progressez avec un accompagnement structuré.",
     icon: TrendingUp,
   },
 ];
@@ -134,12 +151,11 @@ function HeroSection() {
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-16">
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-
           {/* Colonne texte */}
           <div className="max-w-xl">
             <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold leading-tight tracking-tight mb-6">
               Accélérez votre parcours{" "}
-              <span className="text-secondary">avec les bons mentors</span>
+              <span className="text-emerald-300">avec les bons mentors</span>
             </h1>
 
             <p className="text-lg text-white/80 leading-relaxed mb-10">
@@ -178,22 +194,40 @@ function HeroSection() {
               />
             </div>
           </div>
-
         </div>
       </div>
     </section>
   );
 }
 
-function StatsSection() {
+function StatsSection({ stats }: { stats: PublicHomeStats }) {
+  const statItems = [
+    {
+      label: "Mentors & experts actifs",
+      value: stats.activeMentorsCount.toLocaleString("fr-FR"),
+    },
+    {
+      label: "Bénéficiaires inscrits",
+      value: stats.beneficiariesCount.toLocaleString("fr-FR"),
+    },
+    {
+      label: "Opportunités actives",
+      value: stats.activeOpportunitiesCount.toLocaleString("fr-FR"),
+    },
+    {
+      label: "Masterclasses proposées",
+      value: stats.masterclassesCount.toLocaleString("fr-FR"),
+    },
+  ];
+
   return (
     <section aria-label="Chiffres clés" className="bg-white border-b border-border">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
         <dl className="grid grid-cols-2 gap-6 md:grid-cols-4">
-          {STATS.map((stat) => (
-            <div key={stat.label} className="text-center">
-              <dt className="text-3xl font-extrabold text-primary">{stat.value}</dt>
-              <dd className="mt-1 text-sm text-muted-foreground">{stat.label}</dd>
+          {statItems.map((item) => (
+            <div key={item.label} className="flex flex-col-reverse text-center">
+              <dt className="mt-1 text-sm text-muted-foreground">{item.label}</dt>
+              <dd className="text-3xl font-extrabold text-primary">{item.value}</dd>
             </div>
           ))}
         </dl>
@@ -274,12 +308,11 @@ function HowItWorksSection() {
                 {index < HOW_IT_WORKS.length - 1 && (
                   <div
                     aria-hidden
-                    className="hidden lg:block absolute top-7 left-[calc(100%-0px)] w-full h-px bg-border -translate-y-1/2 z-0"
-                    style={{ width: "calc(100% - 3.5rem)", left: "3.5rem" }}
+                    className="hidden lg:block absolute top-7 left-28 -right-6 h-px bg-border z-0"
                   />
                 )}
                 <div className="relative z-10 flex flex-col items-start gap-3">
-                  <div className="flex items-center gap-3 mb-1">
+                  <div className="flex items-center gap-3 mb-1 bg-white pr-3">
                     <div className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-white font-bold text-lg">
                       <Icon className="h-6 w-6" aria-hidden />
                     </div>
@@ -355,7 +388,7 @@ function AudienceSection() {
 
 function FeaturesHighlight() {
   const features = [
-    { icon: MessageSquare, text: "Messagerie directe avec votre mentor" },
+    { icon: UserCheck, text: "Demandes de mentoring et mise en relation directe" },
     { icon: Calendar, text: "Prise de rendez-vous intégrée" },
     { icon: Target, text: "Suivi de parcours et d'objectifs" },
     { icon: CheckCircle, text: "Mentors validés et vérifiés" },
@@ -373,11 +406,11 @@ function FeaturesHighlight() {
               className="text-3xl sm:text-4xl font-extrabold mb-4 leading-tight"
             >
               Tout ce qu&apos;il vous faut pour{" "}
-              <span className="text-secondary">réussir votre accompagnement</span>
+              <span className="text-emerald-300">réussir votre accompagnement</span>
             </h2>
             <p className="text-white/75 text-lg leading-relaxed mb-8">
               Des outils concrets intégrés directement dans la plateforme pour suivre vos
-              progrès, communiquer avec votre mentor et saisir vos opportunités.
+              progrès, échanger avec votre mentor et saisir vos opportunités.
             </p>
             <Link
               href={ROUTES.AUTH.REGISTER}
@@ -396,7 +429,7 @@ function FeaturesHighlight() {
                   key={feature.text}
                   className="flex items-center gap-3 bg-white/8 rounded-lg px-4 py-3.5"
                 >
-                  <Icon className="h-5 w-5 text-secondary shrink-0" aria-hidden />
+                  <Icon className="h-5 w-5 text-emerald-300 shrink-0" aria-hidden />
                   <span className="text-sm font-medium text-white/90">{feature.text}</span>
                 </li>
               );
@@ -425,8 +458,8 @@ function CtaSection() {
           Prêt à transformer votre parcours ?
         </h2>
         <p className="text-muted-foreground text-lg leading-relaxed mb-8 max-w-xl mx-auto">
-          Rejoignez des milliers de bénéficiaires et de mentors qui bâtissent ensemble
-          l&apos;Afrique de demain.
+          Rejoignez les bénéficiaires, mentors, experts et partenaires qui bâtissent
+          ensemble l&apos;Afrique de demain.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link
@@ -437,7 +470,7 @@ function CtaSection() {
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
           <Link
-            href={ROUTES.MENTOR.APPLICATION}
+            href={`${ROUTES.AUTH.REGISTER}?role=mentor`}
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/30 px-7 py-4 text-sm font-semibold text-primary hover:border-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Devenir mentor
@@ -450,18 +483,18 @@ function CtaSection() {
 
 // --- Page principale ---
 
-export default function HomePage() {
+export default async function HomePage() {
+  const stats = await getPublicHomeStats();
+
   return (
     <>
-      <Navbar />
       <HeroSection />
-      <StatsSection />
+      <StatsSection stats={stats} />
       <PillarsSection />
       <HowItWorksSection />
       <AudienceSection />
       <FeaturesHighlight />
       <CtaSection />
-      <Footer />
     </>
   );
 }

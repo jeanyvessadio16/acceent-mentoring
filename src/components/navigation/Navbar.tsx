@@ -9,6 +9,7 @@ import {
   X,
   LogIn,
   ArrowRight,
+  LayoutDashboard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/lib/constants";
@@ -20,7 +21,16 @@ const NAV_LINKS = [
   { label: "Masterclasses", href: ROUTES.MASTERCLASSES_CATALOG },
 ];
 
-export function Navbar() {
+export interface NavbarUserSummary {
+  displayName: string;
+  dashboardUrl: string;
+}
+
+interface NavbarProps {
+  currentUser?: NavbarUserSummary | null;
+}
+
+export function Navbar({ currentUser }: NavbarProps = {}) {
   const [openedPath, setOpenedPath] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
@@ -32,6 +42,17 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Fermer le menu mobile avec la touche Échap
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenedPath(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
 
   // Verrouiller le scroll du body lorsque le menu mobile est ouvert
   useEffect(() => {
@@ -54,7 +75,7 @@ export function Navbar() {
           "sticky top-0 z-40 w-full transition-all duration-300",
           scrolled
             ? "bg-white/95 backdrop-blur-md border-b border-border shadow-sm"
-            : "bg-transparent"
+            : "bg-white/90 backdrop-blur-sm border-b border-transparent"
         )}
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -63,11 +84,11 @@ export function Navbar() {
             <Link
               href={ROUTES.HOME}
               className="flex items-center shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md"
-              aria-label="MentorPro – Accueil"
+              aria-label="ACCEENT Mentoring – Accueil"
             >
               <Image
                 src="/logo/Logo Mentor_plateforme.png"
-                alt="MentorPro — Apprendre · Évoluer · Réussir"
+                alt="ACCEENT Mentoring — Apprendre · Évoluer · Réussir"
                 width={140}
                 height={48}
                 priority
@@ -97,26 +118,43 @@ export function Navbar() {
 
             {/* CTA Desktop */}
             <div className="hidden md:flex items-center gap-3">
-              <Link
-                href={ROUTES.AUTH.LOGIN}
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-semibold text-primary",
-                  "border border-primary/30 hover:border-primary hover:bg-primary/5",
-                  "transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                )}
-              >
-                Se connecter
-              </Link>
-              <Link
-                href={ROUTES.AUTH.REGISTER}
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-semibold text-white bg-primary",
-                  "hover:bg-primary/90 transition-colors duration-200 shadow-xs",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                )}
-              >
-                Rejoindre la plateforme
-              </Link>
+              {currentUser ? (
+                <Link
+                  href={currentUser.dashboardUrl}
+                  title={currentUser.displayName}
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-white bg-primary",
+                    "hover:bg-primary/90 transition-colors duration-200 shadow-xs",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  )}
+                >
+                  <LayoutDashboard className="h-4 w-4" aria-hidden />
+                  <span>Mon espace</span>
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href={ROUTES.AUTH.LOGIN}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-sm font-semibold text-primary",
+                      "border border-primary/30 hover:border-primary hover:bg-primary/5",
+                      "transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    )}
+                  >
+                    Se connecter
+                  </Link>
+                  <Link
+                    href={ROUTES.AUTH.REGISTER}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-sm font-semibold text-white bg-primary",
+                      "hover:bg-primary/90 transition-colors duration-200 shadow-xs",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                    )}
+                  >
+                    Rejoindre la plateforme
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Bouton burger mobile */}
@@ -153,11 +191,12 @@ export function Navbar() {
         id="mobile-sidebar"
         aria-label="Menu mobile"
         aria-hidden={!isOpen}
+        inert={!isOpen || undefined}
         className={cn(
           "fixed top-0 right-0 bottom-0 z-50 w-[85vw] max-w-sm h-screen h-[100dvh] max-h-[100dvh]",
           "bg-white shadow-2xl flex flex-col justify-between overflow-hidden overscroll-none select-none",
           "transition-transform duration-300 ease-in-out md:hidden",
-          isOpen ? "translate-x-0" : "translate-x-full"
+          isOpen ? "translate-x-0" : "translate-x-full invisible pointer-events-none"
         )}
       >
         {/* En-tête de la barre latérale */}
@@ -169,7 +208,7 @@ export function Navbar() {
           >
             <Image
               src="/logo/Logo Mentor_plateforme.png"
-              alt="MentorPro"
+              alt="ACCEENT Mentoring"
               width={120}
               height={40}
               className="h-8 w-auto object-contain"
@@ -211,24 +250,41 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Boutons d'action en bas (style arrondi identique à la connexion/inscription) */}
+        {/* Boutons d'action en bas */}
         <div className="p-5 border-t border-border bg-slate-50/80 shrink-0 flex flex-col gap-3">
-          <Link
-            href={ROUTES.AUTH.LOGIN}
-            onClick={() => setOpenedPath(null)}
-            className="flex items-center justify-center gap-2 h-11 w-full rounded-full text-sm font-semibold text-primary border border-primary/30 hover:border-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <LogIn className="h-4 w-4" aria-hidden />
-            <span>Se connecter</span>
-          </Link>
-          <Link
-            href={ROUTES.AUTH.REGISTER}
-            onClick={() => setOpenedPath(null)}
-            className="flex items-center justify-center gap-2 h-11 w-full rounded-full text-sm font-semibold text-white bg-primary hover:bg-primary/90 shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <span>Rejoindre la plateforme</span>
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
+          {currentUser ? (
+            <Link
+              href={currentUser.dashboardUrl}
+              onClick={() => setOpenedPath(null)}
+              className="flex items-center justify-center gap-2 h-11 w-full rounded-full text-sm font-semibold text-white bg-primary hover:bg-primary/90 shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <LayoutDashboard className="h-4 w-4" aria-hidden />
+              <span className="truncate px-2">
+                {currentUser.displayName !== "Mon espace"
+                  ? `Mon espace (${currentUser.displayName})`
+                  : "Mon espace"}
+              </span>
+            </Link>
+          ) : (
+            <>
+              <Link
+                href={ROUTES.AUTH.LOGIN}
+                onClick={() => setOpenedPath(null)}
+                className="flex items-center justify-center gap-2 h-11 w-full rounded-full text-sm font-semibold text-primary border border-primary/30 hover:border-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <LogIn className="h-4 w-4" aria-hidden />
+                <span>Se connecter</span>
+              </Link>
+              <Link
+                href={ROUTES.AUTH.REGISTER}
+                onClick={() => setOpenedPath(null)}
+                className="flex items-center justify-center gap-2 h-11 w-full rounded-full text-sm font-semibold text-white bg-primary hover:bg-primary/90 shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <span>Rejoindre la plateforme</span>
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </>
+          )}
         </div>
       </aside>
     </>
