@@ -47,11 +47,12 @@ export function AdminHeader({ pendingCount = 4, currentUser }: AdminHeaderProps)
           </div>
         </div>
 
-        {/* Côté droit : Recherche rapide, notifications, lien plateforme */}
+        {/* Côté droit : Recherche rapide, notifications, lien plateforme, profil */}
         <div className="flex items-center gap-3">
           <Link
             href={ROUTES.HOME}
             target="_blank"
+            rel="noopener noreferrer"
             className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-2.5 py-1.5 rounded-lg hover:bg-slate-50"
           >
             <span>Voir le site public</span>
@@ -70,6 +71,19 @@ export function AdminHeader({ pendingCount = 4, currentUser }: AdminHeaderProps)
                 {pendingCount}
               </span>
             )}
+          </Link>
+
+          <Link
+            href={ROUTES.ADMIN.PROFILE}
+            className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity"
+            title="Accéder à mon profil administrateur"
+          >
+            <div className="w-8 h-8 rounded-full bg-secondary text-white font-bold text-xs flex items-center justify-center shadow-xs">
+              {`${currentUser?.prenom?.[0] || "A"}${currentUser?.nom?.[0] || "D"}`.toUpperCase()}
+            </div>
+            <span className="hidden md:inline-block text-xs font-semibold text-foreground">
+              {currentUser?.prenom || "Admin"}
+            </span>
           </Link>
         </div>
       </header>

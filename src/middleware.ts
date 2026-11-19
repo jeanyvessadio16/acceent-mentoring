@@ -1,8 +1,31 @@
-import { type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
+const PROTECTED_PREFIXES = [
+  "/admin",
+  "/dashboard",
+  "/beneficiary",
+  "/mentor",
+  "/expert",
+  "/partenaire",
+  "/diagnostic",
+  "/profile",
+];
+
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse } = await updateSession(request);
+  const { supabaseResponse, user } = await updateSession(request);
+  const { pathname } = request.nextUrl;
+
+  const isProtected = PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+
+  if (isProtected && !user) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return supabaseResponse;
 }
 

@@ -29,12 +29,15 @@ export const ROUTES = {
     DASHBOARD: '/dashboard/beneficiaire',
     DIAGNOSIS: '/diagnostic',
     RECOMMENDATIONS: '/beneficiary/recommendations',
+    MENTORS: '/beneficiary/mentors',
+    MENTOR_DETAIL: (id: string) => `/beneficiary/mentors/${id}`,
     MENTOR_REQUEST: (mentorId: string) => `/beneficiary/request/${mentorId}`,
     MY_MENTORS: '/beneficiary/mentors',
     PARCOURS: '/beneficiary/parcours',
     SESSIONS: '/beneficiary/sessions',
     MESSAGES: '/beneficiary/messages',
     OPPORTUNITIES: '/beneficiary/opportunities',
+    MASTERCLASSES: '/beneficiary/masterclasses',
     PROFILE: '/beneficiary/profile',
   },
 
@@ -52,9 +55,15 @@ export const ROUTES = {
   // Espace Expert & Partenaire
   EXPERT: {
     DASHBOARD: '/dashboard/expert',
+    MASTERCLASSES: '/expert/masterclasses',
+    SESSIONS: '/expert/sessions',
+    PROFILE: '/expert/profile',
   },
   PARTNER: {
     DASHBOARD: '/dashboard/partenaire',
+    OPPORTUNITIES: '/partenaire/opportunities',
+    IMPACT: '/partenaire/impact',
+    PROFILE: '/partenaire/profile',
   },
 
   // Redirections contextuelles & Tableaux de bord
@@ -76,5 +85,6 @@ export const ROUTES = {
     OPPORTUNITIES: '/admin/opportunities',
     MASTERCLASSES: '/admin/masterclasses',
     ANALYTICS: '/admin/analytics',
+    PROFILE: '/admin/profile',
   },
 } as const;

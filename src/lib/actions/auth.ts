@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
 import { loginSchema, forgotPasswordSchema, registerSchema } from "@/lib/schemas/auth";
 import { ROUTES } from "@/lib/constants";
 import { getDashboardUrl, getRedirectUrl } from "@/lib/utils/auth-redirect";
@@ -18,6 +20,15 @@ export type AuthActionResult = {
     email?: string;
     role?: string;
   };
+};
+
+const ROLE_MAP: Record<string, string> = {
+  beneficiary: "BENEFICIAIRE",
+  beneficiaire: "BENEFICIAIRE",
+  mentor: "MENTOR",
+  expert: "EXPERT",
+  partner: "PARTENAIRE",
+  partenaire: "PARTENAIRE",
 };
 
 /**
@@ -43,7 +54,6 @@ export async function loginAction(
   });
 
   if (error || !data.user) {
-    // Messages d'erreur conviviaux en français
     let errorMessage = "Échec de connexion. Vérifiez vos identifiants.";
     if (error?.message.includes("Invalid login credentials")) {
       errorMessage = "Adresse email ou mot de passe incorrect.";
@@ -58,9 +68,26 @@ export async function loginAction(
   }
 
   const metadata = data.user.user_metadata || {};
-  const status = metadata.status || metadata.statutCompte || "ACTIVE";
+  const adminDb = createAdminClient();
+
+  // Source de vérité PostgreSQL : statut, rôle, diagnostic, mentorProfile
+  const { data: dbUser } = await findDbUserByAuth<{
+    id: string;
+    email: string;
+    role: string;
+    statutCompte: string;
+    MentorProfile?: { statutValidation?: string } | Array<{ statutValidation?: string }> | null;
+    Diagnostic?: { isCompleted?: boolean } | Array<{ isCompleted?: boolean }> | null;
+  }>(
+    adminDb,
+    { id: data.user.id, email: data.user.email },
+    "id, email, role, statutCompte, MentorProfile(statutValidation), Diagnostic(isCompleted)"
+  );
+
+  const status = dbUser?.statutCompte || metadata.status || metadata.statutCompte || "ACTIVE";
 
   if (status === "SUSPENDED") {
+    await supabase.auth.signOut();
     return {
       success: false,
       error: "Votre compte a été suspendu par l'administration.",
@@ -68,15 +95,27 @@ export async function loginAction(
   }
 
   if (status === "REJECTED") {
+    await supabase.auth.signOut();
     return {
       success: false,
       error: "Votre candidature a été refusée par l'administration.",
     };
   }
 
-  const userRole = metadata.role || metadata.account_type || "BENEFICIAIRE";
+  const mentorProfile = Array.isArray(dbUser?.MentorProfile)
+    ? dbUser.MentorProfile[0] ?? null
+    : dbUser?.MentorProfile ?? null;
+
+  const diagnostic = Array.isArray(dbUser?.Diagnostic)
+    ? dbUser.Diagnostic[0] ?? null
+    : dbUser?.Diagnostic ?? null;
+
+  const userRole = dbUser?.role || metadata.role || metadata.account_type || "BENEFICIAIRE";
+
   const redirectUrl = getRedirectUrl({
     role: userRole,
+    mentorProfile,
+    diagnostic,
     user_metadata: metadata,
   });
   const dashboardUrl = getDashboardUrl(userRole);
@@ -88,15 +127,15 @@ export async function loginAction(
     redirectUrl,
     dashboardUrl,
     user: {
-      id: data.user.id,
-      email: data.user.email,
+      id: dbUser?.id || data.user.id,
+      email: dbUser?.email || data.user.email,
       role: userRole,
     },
   };
 }
 
 /**
- * Inscription complète avec rôle et informations démographiques via Supabase Auth
+ * Inscription complète avec rôle et informations démographiques via Supabase Auth + synchronisation PostgreSQL
  */
 export async function registerAction(
   values: unknown
@@ -112,7 +151,7 @@ export async function registerAction(
   const data = parsed.data;
   const supabase = await createClient();
 
-  const { error } = await supabase.auth.signUp({
+  const { data: signUpData, error } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
     options: {
@@ -147,20 +186,106 @@ export async function registerAction(
     };
   }
 
+  const normalizedRole = ROLE_MAP[data.accountType.toLowerCase()] || "BENEFICIAIRE";
+  const statutCompte = normalizedRole === "BENEFICIAIRE" ? "ACTIVE" : "PENDING";
+  const normalizedSexe =
+    data.sexe === "Femme" ? "FEMME" : data.sexe === "Homme" ? "HOMME" : null;
+  const normalizedMilieu =
+    data.milieuResidence === "Rural"
+      ? "RURAL"
+      : data.milieuResidence === "Urbain"
+      ? "URBAIN"
+      : null;
+  const situationHandicap = data.sdh === "Oui";
+
+  // Synchronisation immédiate dans PostgreSQL
+  if (signUpData?.user) {
+    const adminDb = createAdminClient();
+    const { data: existingDbUser } = await findDbUserByAuth<{ id: string }>(
+      adminDb,
+      { id: signUpData.user.id, email: data.email },
+      "id"
+    );
+
+    if (!existingDbUser) {
+      const now = new Date().toISOString();
+      const newUserId = crypto.randomUUID();
+
+      const { error: insertUserErr } = await adminDb.from("User").insert({
+        id: newUserId,
+        supabaseUid: signUpData.user.id,
+        email: data.email,
+        nom: data.lastName.trim(),
+        prenom: data.firstName.trim(),
+        telephone: data.phone || null,
+        pays: data.country || "Sénégal",
+        role: normalizedRole,
+        statutCompte,
+        age: data.age ?? null,
+        sexe: normalizedSexe,
+        milieuResidence: normalizedMilieu,
+        situationHandicap,
+        langue: "fr",
+        consentCgu: Boolean(data.acceptTerms),
+        consentData: Boolean(data.acceptPrivacy),
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      if (insertUserErr && insertUserErr.code !== "23505") {
+        console.error("Erreur insertion User après register :", insertUserErr.message);
+      } else if (!insertUserErr) {
+        await adminDb.from("UserProfile").insert({
+          id: crypto.randomUUID(),
+          userId: newUserId,
+          competences: [],
+          centresInteret: [],
+          objectifs: [],
+          langues: ["fr"],
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        if (normalizedRole === "MENTOR") {
+          await adminDb.from("MentorProfile").insert({
+            id: crypto.randomUUID(),
+            userId: newUserId,
+            fonction: "En attente de renseignement",
+            organisation: "Non renseigné",
+            anneesExperience: 0,
+            expertises: [],
+            secteurs: [],
+            langues: ["fr"],
+            publicsAccompagnes: [],
+            biographie: "Profil mentor en cours de complétion.",
+            statutValidation: "PENDING",
+            isAvailable: false,
+            createdAt: now,
+            updatedAt: now,
+          });
+        }
+      }
+    }
+  }
+
   const redirectUrl = getRedirectUrl({
-    role: data.accountType,
+    role: normalizedRole,
+    mentorProfile:
+      normalizedRole === "MENTOR" ? { statutValidation: "PENDING" } : null,
+    diagnostic: normalizedRole === "BENEFICIAIRE" ? { isCompleted: false } : null,
     user_metadata: {
-      role: data.accountType,
+      role: normalizedRole,
       diagnostic_completed: false,
-      status: data.accountType === "beneficiary" ? "ACTIVE" : "PENDING",
+      status: statutCompte,
     },
   });
-  const dashboardUrl = getDashboardUrl(data.accountType);
+  const dashboardUrl = getDashboardUrl(normalizedRole);
 
   revalidatePath("/", "layout");
   return {
     success: true,
-    message: "Compte créé avec succès ! Vérifiez votre boîte email si une confirmation est requise.",
+    message:
+      "Compte créé avec succès ! Vérifiez votre boîte email si une confirmation est requise.",
     redirectUrl,
     dashboardUrl,
   };
@@ -194,7 +319,8 @@ export async function forgotPasswordAction(
 
   return {
     success: true,
-    message: "Si un compte est associé à cette adresse, vous recevrez un lien pour réinitialiser votre mot de passe.",
+    message:
+      "Si un compte est associé à cette adresse, vous recevrrez un lien pour réinitialiser votre mot de passe.",
   };
 }
 

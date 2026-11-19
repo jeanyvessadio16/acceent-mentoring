@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { AdminSidebar, AdminHeader } from "@/features/administration";
 import {
   getPendingValidationsAction,
   getCurrentAdminUserAction,
 } from "@/lib/actions/admin";
+import { ROUTES } from "@/lib/constants";
 
 export const instant = false;
 
@@ -17,11 +19,12 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Récupération simultanée des données de session et validations en attente
-  const [pendingItems, currentUser] = await Promise.all([
-    getPendingValidationsAction(),
-    getCurrentAdminUserAction(),
-  ]);
+  const currentUser = await getCurrentAdminUserAction();
+  if (!currentUser) {
+    redirect(ROUTES.AUTH.LOGIN);
+  }
+
+  const pendingItems = await getPendingValidationsAction();
   const pendingCount = pendingItems.length;
 
   return (

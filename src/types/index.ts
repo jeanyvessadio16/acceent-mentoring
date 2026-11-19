@@ -246,3 +246,63 @@ export interface RecentAdminActivity {
   timestamp: string;
   userRole?: string;
 }
+
+// --- Espace Bénéficiaire ---
+export interface BeneficiaryDashboardData {
+  user: {
+    id: string;
+    email: string;
+    prenom: string;
+    nom: string;
+    role: string;
+    statutCompte: string;
+    age?: number | null;
+    sexe?: string | null;
+    milieuResidence?: string | null;
+    situationHandicap: boolean;
+    photoUrl?: string | null;
+  };
+  hasCompletedDiagnosis: boolean;
+  diagnostic?: {
+    id: string;
+    domaine?: string;
+    objectifPrincipal?: string;
+    isCompleted: boolean;
+  } | null;
+  activeProgramsCount: number;
+  upcomingSessionsCount: number;
+  completedSessionsCount: number;
+  averageProgress: number;
+  activeProgram?: {
+    id: string;
+    titre: string;
+    progression: number;
+    mentorName: string;
+    mentorTitle?: string;
+    mentorEmail?: string;
+    goalsCount: number;
+    tasksCount: number;
+  } | null;
+  upcomingSessions: Array<{
+    id: string;
+    titre: string;
+    mentorName: string;
+    dateDebut: string;
+    dateFin: string;
+    meetingUrl?: string | null;
+    status: string;
+  }>;
+  recommendedMentors: Array<{
+    id: string;
+    mentorId: string;
+    nom: string;
+    prenom: string;
+    fonction: string;
+    organisation: string;
+    expertises: string[];
+    anneesExperience: number;
+    isAvailable: boolean;
+    scoreTotal?: number;
+    justification?: string;
+  }>;
+}

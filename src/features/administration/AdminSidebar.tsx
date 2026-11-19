@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   ChevronRight,
   Settings,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/lib/constants";
@@ -60,6 +61,11 @@ const ADMIN_NAV_ITEMS = [
     label: "Mesure d'impact",
     href: ROUTES.ADMIN.ANALYTICS,
     icon: BarChart3,
+  },
+  {
+    label: "Mon Profil",
+    href: ROUTES.ADMIN.PROFILE,
+    icon: User,
   },
 ];
 
@@ -147,9 +153,9 @@ export function AdminSidebar({
           {ADMIN_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive =
-              pathname === item.href ||
-              (item.href !== ROUTES.ADMIN.DASHBOARD &&
-                pathname.startsWith(item.href));
+              item.href === ROUTES.ADMIN.DASHBOARD
+                ? pathname === item.href
+                : pathname === item.href || pathname.startsWith(`${item.href}/`);
 
             return (
               <Link
@@ -193,21 +199,27 @@ export function AdminSidebar({
 
       {/* Bas : Profil administrateur et Déconnexion */}
       <div className="p-3 border-t border-slate-800 bg-slate-950/40">
-        <div className="px-3 py-2.5 rounded-xl bg-slate-800/60 flex items-center justify-between mb-2">
+        <Link
+          href={ROUTES.ADMIN.PROFILE}
+          onClick={onNavigate}
+          className="px-3 py-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 flex items-center justify-between mb-2 transition-colors group"
+          title="Consulter et modifier mon profil"
+        >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-secondary/30 text-secondary border border-secondary/40 flex items-center justify-center font-bold text-xs shrink-0">
+            <div className="w-8 h-8 rounded-full bg-secondary/30 text-secondary border border-secondary/40 flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
               {initials}
             </div>
-            <div className="truncate">
+            <div className="truncate text-left">
               <p className="text-xs font-semibold text-white truncate" title={displayName}>
                 {displayName}
               </p>
               <p className="text-[11px] text-slate-400 truncate" title={displayEmail}>
-                {displayEmail}
+                Mon profil · Gérer
               </p>
             </div>
           </div>
-        </div>
+          <ChevronRight className="h-3.5 w-3.5 text-slate-500 group-hover:text-white transition-colors shrink-0" />
+        </Link>
 
         <form action={signOutAction}>
           <button

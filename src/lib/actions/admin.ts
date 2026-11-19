@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
 import type {
   AdminDashboardStats,
   PendingValidationItem,
@@ -17,10 +18,21 @@ export interface CurrentAdminUser {
   role: string;
 }
 
+function isNextInternalError(err: unknown): boolean {
+  if (!err || typeof err !== "object" || !("digest" in err)) {
+    return false;
+  }
+  const digest = (err as { digest?: unknown }).digest;
+  return (
+    digest === "HANGING_PROMISE_REJECTION" ||
+    (typeof digest === "string" && digest.startsWith("NEXT_"))
+  );
+}
+
 /**
- * Server Action : Récupère les données réelles de l'administrateur connecté
+ * Vérifie côté serveur que l'appelant est authentifié et possède le rôle ADMIN actif.
  */
-export async function getCurrentAdminUserAction(): Promise<CurrentAdminUser | null> {
+async function requireAdmin(): Promise<CurrentAdminUser | null> {
   try {
     const supabase = await createClient();
     const {
@@ -33,40 +45,50 @@ export async function getCurrentAdminUserAction(): Promise<CurrentAdminUser | nu
     }
 
     const adminDb = createAdminClient();
-    const { data: dbUser } = await adminDb
-      .from("User")
-      .select("id, email, nom, prenom, role")
-      .or(`supabaseUid.eq.${authUser.id},email.eq.${authUser.email}`)
-      .maybeSingle();
+    const { data: dbUser } = await findDbUserByAuth<{
+      id: string;
+      email: string;
+      nom: string | null;
+      prenom: string | null;
+      role: string;
+      statutCompte: string;
+    }>(adminDb, authUser, "id, email, nom, prenom, role, statutCompte");
 
-    if (dbUser) {
-      return {
-        id: dbUser.id,
-        email: dbUser.email,
-        nom: dbUser.nom || "",
-        prenom: dbUser.prenom || "",
-        role: dbUser.role || "ADMIN",
-      };
+    if (
+      !dbUser ||
+      dbUser.role !== "ADMIN" ||
+      dbUser.statutCompte === "SUSPENDED" ||
+      dbUser.statutCompte === "REJECTED"
+    ) {
+      return null;
     }
 
-    const meta = authUser.user_metadata || {};
     return {
-      id: authUser.id,
-      email: authUser.email || "",
-      nom: meta.last_name || meta.nom || "",
-      prenom: meta.first_name || meta.prenom || meta.full_name || "Admin",
-      role: meta.role || "ADMIN",
+      id: dbUser.id,
+      email: dbUser.email,
+      nom: dbUser.nom || "",
+      prenom: dbUser.prenom || "",
+      role: dbUser.role,
     };
-  } catch (error: any) {
-    if (error?.digest !== "HANGING_PROMISE_REJECTION") {
-      console.error("Erreur getCurrentAdminUserAction :", error);
+  } catch (error) {
+    if (isNextInternalError(error)) {
+      throw error;
     }
+    console.error("Erreur requireAdmin :", error);
     return null;
   }
 }
 
+/**
+ * Server Action : Récupère les données réelles de l'administrateur connecté
+ */
+export async function getCurrentAdminUserAction(): Promise<CurrentAdminUser | null> {
+  return requireAdmin();
+}
+
 export interface RealDatabaseUser {
   id: string;
+  supabaseUid?: string | null;
   email: string;
   nom: string;
   prenom: string;
@@ -87,6 +109,11 @@ export interface RealDatabaseUser {
  * STRICTEMENT AUCUNE FAUSSE DONNÉE.
  */
 export async function getAdminStatsAction(): Promise<AdminDashboardStats> {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return getEmptyStats();
+  }
+
   const supabase = createAdminClient();
 
   try {
@@ -211,6 +238,11 @@ function getEmptyStats(): AdminDashboardStats {
  * Server Action : Récupère les profils réels en attente de validation administrative
  */
 export async function getPendingValidationsAction(): Promise<PendingValidationItem[]> {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return [];
+  }
+
   const supabase = createAdminClient();
 
   try {
@@ -264,15 +296,23 @@ export async function getPendingValidationsAction(): Promise<PendingValidationIt
 }
 
 /**
- * Server Action : Valide ou rejette un utilisateur réel dans la base de données
+ * Server Action : Valide, réactive ou suspend un utilisateur réel dans la base de données
  */
 export async function updateUserStatusAction(
   userId: string,
-  newStatus: "approved" | "rejected" | "suspended"
+  newStatus: "approved" | "rejected" | "suspended" | "active"
 ): Promise<{ success: boolean; message: string }> {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return {
+      success: false,
+      message: "Accès refusé : droits administrateur requis.",
+    };
+  }
+
   const supabase = createAdminClient();
   const dbStatus =
-    newStatus === "approved"
+    newStatus === "approved" || newStatus === "active"
       ? "ACTIVE"
       : newStatus === "rejected"
       ? "REJECTED"
@@ -309,8 +349,10 @@ export async function updateUserStatusAction(
     return {
       success: true,
       message:
-        newStatus === "approved"
-          ? "Le profil a été approuvé avec succès en base de données."
+        dbStatus === "ACTIVE"
+          ? "Le compte a été activé avec succès."
+          : dbStatus === "SUSPENDED"
+          ? "Le compte a été suspendu."
           : "Le profil a été rejeté.",
     };
   } catch (err: any) {
@@ -323,23 +365,36 @@ export async function updateUserStatusAction(
 }
 
 /**
- * Server Action : Récupère la liste réelle des utilisateurs de la plateforme
+ * Server Action : Récupère la liste paginée/ordonnée des utilisateurs inscrits (lecture pure).
  */
-export async function getRealUsersListAction(): Promise<RealDatabaseUser[]> {
+export async function getRealUsersListAction(
+  page = 1,
+  limit = 100
+): Promise<RealDatabaseUser[]> {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return [];
+  }
+
   const supabase = createAdminClient();
+  const safePage = Math.max(1, page);
+  const safeLimit = Math.min(Math.max(1, limit), 200);
+  const from = (safePage - 1) * safeLimit;
+  const to = from + safeLimit - 1;
 
   try {
-    const { data: users, error } = await supabase
+    const { data: existingUsers, error: fetchError } = await supabase
       .from("User")
       .select("*")
-      .order("createdAt", { ascending: false });
+      .order("createdAt", { ascending: false })
+      .range(from, to);
 
-    if (error || !users) {
-      console.error("Erreur getRealUsersListAction :", error?.message);
+    if (fetchError) {
+      console.error("Erreur lecture table User:", fetchError.message);
       return [];
     }
 
-    return users as RealDatabaseUser[];
+    return (existingUsers || []) as RealDatabaseUser[];
   } catch (err) {
     console.error("Erreur inattendue dans getRealUsersListAction :", err);
     return [];
@@ -347,9 +402,152 @@ export async function getRealUsersListAction(): Promise<RealDatabaseUser[]> {
 }
 
 /**
+ * Server Action explicite : Synchronise par lots paginés les comptes Supabase Auth manquants dans User.
+ */
+export async function syncAuthUsersToDatabaseAction(): Promise<{
+  success: boolean;
+  syncedCount: number;
+  message: string;
+}> {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return {
+      success: false,
+      syncedCount: 0,
+      message: "Accès refusé : droits administrateur requis.",
+    };
+  }
+
+  const supabase = createAdminClient();
+
+  try {
+    const { data: existingUsers, error: fetchError } = await supabase
+      .from("User")
+      .select("supabaseUid, email");
+
+    if (fetchError) {
+      throw new Error(fetchError.message);
+    }
+
+    const existingEmails = new Set(
+      (existingUsers || []).map((u) => (u.email || "").toLowerCase())
+    );
+    const existingUids = new Set(
+      (existingUsers || []).map((u) => u.supabaseUid).filter(Boolean)
+    );
+
+    const roleMap: Record<string, string> = {
+      beneficiary: "BENEFICIAIRE",
+      beneficiaire: "BENEFICIAIRE",
+      mentor: "MENTOR",
+      expert: "EXPERT",
+      partner: "PARTENAIRE",
+      partenaire: "PARTENAIRE",
+      admin: "ADMIN",
+    };
+
+    let page = 1;
+    const perPage = 100;
+    let syncedCount = 0;
+
+    while (true) {
+      const { data: authPage, error: authErr } = await supabase.auth.admin.listUsers({
+        page,
+        perPage,
+      });
+
+      if (authErr) {
+        throw new Error(authErr.message);
+      }
+
+      const authUsers = authPage?.users || [];
+      if (authUsers.length === 0) {
+        break;
+      }
+
+      const missingAuthUsers = authUsers.filter(
+        (au) =>
+          au.email &&
+          !existingEmails.has(au.email.toLowerCase()) &&
+          !existingUids.has(au.id)
+      );
+
+      for (const missingUser of missingAuthUsers) {
+        const meta = missingUser.user_metadata || {};
+        const rawRole = (meta.role || meta.account_type || "BENEFICIAIRE").toLowerCase();
+        const role = roleMap[rawRole] || "BENEFICIAIRE";
+        const statutCompte =
+          role === "BENEFICIAIRE" ? "ACTIVE" : (meta.status || "PENDING");
+        const rawSexe = (meta.sexe || "").toUpperCase();
+        const sexe = rawSexe === "FEMME" ? "FEMME" : rawSexe === "HOMME" ? "HOMME" : null;
+        const rawMilieu = (
+          meta.milieu_residence ||
+          meta.milieuResidence ||
+          ""
+        ).toUpperCase();
+        const milieuResidence =
+          rawMilieu === "RURAL" ? "RURAL" : rawMilieu === "URBAIN" ? "URBAIN" : null;
+        const situationHandicap = meta.sdh === "Oui" || meta.sdh === true;
+
+        const { error: insertError } = await supabase.from("User").insert({
+          id: crypto.randomUUID(),
+          supabaseUid: missingUser.id,
+          email: missingUser.email!,
+          nom: meta.last_name || meta.nom || "Utilisateur",
+          prenom: meta.first_name || meta.prenom || "",
+          telephone: missingUser.phone || meta.phone || null,
+          pays: meta.country || meta.pays || "Sénégal",
+          role,
+          statutCompte,
+          age: typeof meta.age === "number" ? meta.age : null,
+          sexe,
+          milieuResidence,
+          situationHandicap,
+          consentCgu: Boolean(meta.accept_terms),
+          consentData: Boolean(meta.accept_privacy),
+          createdAt: missingUser.created_at || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        if (!insertError) {
+          syncedCount++;
+          existingEmails.add(missingUser.email!.toLowerCase());
+          existingUids.add(missingUser.id);
+        }
+      }
+
+      if (authUsers.length < perPage) {
+        break;
+      }
+      page++;
+    }
+
+    revalidatePath("/admin/users");
+
+    return {
+      success: true,
+      syncedCount,
+      message: `${syncedCount} compte(s) synchronisé(s) avec succès.`,
+    };
+  } catch (err: any) {
+    console.error("Erreur syncAuthUsersToDatabaseAction :", err);
+    return {
+      success: false,
+      syncedCount: 0,
+      message: err.message || "Erreur lors de la synchronisation.",
+    };
+  }
+}
+
+/**
  * Server Action : Récupère les opportunités réelles depuis la base de données
  */
 export async function getRealOpportunitiesAction() {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return [];
+  }
+
   const supabase = createAdminClient();
 
   try {
@@ -374,6 +572,11 @@ export async function getRealOpportunitiesAction() {
  * Server Action : Récupère les masterclasses réelles depuis la base de données
  */
 export async function getRealMasterclassesAction() {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return [];
+  }
+
   const supabase = createAdminClient();
 
   try {
@@ -398,6 +601,11 @@ export async function getRealMasterclassesAction() {
  * Server Action : Récupère le flux réel d'activités depuis la base de données
  */
 export async function getRecentAdminActivitiesAction(): Promise<RecentAdminActivity[]> {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return [];
+  }
+
   const supabase = createAdminClient();
 
   try {

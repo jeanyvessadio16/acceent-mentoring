@@ -9,6 +9,31 @@ const nextConfig: NextConfig = {
         destination: "/admin/dashboard",
         permanent: false,
       },
+      {
+        source: "/beneficiary",
+        destination: "/dashboard/beneficiaire",
+        permanent: false,
+      },
+      {
+        source: "/beneficiary/dashboard",
+        destination: "/dashboard/beneficiaire",
+        permanent: false,
+      },
+      {
+        source: "/mentor",
+        destination: "/dashboard/mentor",
+        permanent: false,
+      },
+      {
+        source: "/expert",
+        destination: "/dashboard/expert",
+        permanent: false,
+      },
+      {
+        source: "/partenaire",
+        destination: "/dashboard/partenaire",
+        permanent: false,
+      },
     ];
   },
   experimental: {
