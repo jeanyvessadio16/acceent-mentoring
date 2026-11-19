@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 /**
- * Met à jour et rafraîchit la session utilisateur dans le middleware Next.js.
+ * Met à jour et rafraîchit la session utilisateur dans le proxy Next.js.
  * Évite les déconnexions inattendues lors de l'expiration des tokens d'accès.
  */
 export async function updateSession(request: NextRequest) {

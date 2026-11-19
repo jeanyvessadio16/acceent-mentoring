@@ -46,27 +46,27 @@ interface DbProgramRow {
   titre: string;
   progression: number | null;
   mentor:
-    | {
-        id: string;
-        nom: string;
-        prenom: string;
-        email: string;
-        MentorProfile:
-          | { fonction: string | null; organisation: string | null }
-          | Array<{ fonction: string | null; organisation: string | null }>
-          | null;
-      }
-    | Array<{
-        id: string;
-        nom: string;
-        prenom: string;
-        email: string;
-        MentorProfile:
-          | { fonction: string | null; organisation: string | null }
-          | Array<{ fonction: string | null; organisation: string | null }>
-          | null;
-      }>
+  | {
+    id: string;
+    nom: string;
+    prenom: string;
+    email: string;
+    MentorProfile:
+    | { fonction: string | null; organisation: string | null }
+    | Array<{ fonction: string | null; organisation: string | null }>
     | null;
+  }
+  | Array<{
+    id: string;
+    nom: string;
+    prenom: string;
+    email: string;
+    MentorProfile:
+    | { fonction: string | null; organisation: string | null }
+    | Array<{ fonction: string | null; organisation: string | null }>
+    | null;
+  }>
+  | null;
   goals: Array<{ id: string }> | null;
   tasks: Array<{ id: string }> | null;
 }
@@ -79,9 +79,9 @@ interface DbSessionRow {
   meetingUrl: string | null;
   status: string;
   mentor:
-    | { nom: string; prenom: string }
-    | Array<{ nom: string; prenom: string }>
-    | null;
+  | { nom: string; prenom: string }
+  | Array<{ nom: string; prenom: string }>
+  | null;
 }
 
 interface DbMentorRow {
@@ -102,15 +102,15 @@ interface DbMentorRow {
   statutValidation?: string | null;
   isAvailable: boolean;
   user:
-    | { id: string; nom: string; prenom: string; email?: string; pays?: string }
-    | Array<{
-        id: string;
-        nom: string;
-        prenom: string;
-        email?: string;
-        pays?: string;
-      }>
-    | null;
+  | { id: string; nom: string; prenom: string; email?: string; pays?: string }
+  | Array<{
+    id: string;
+    nom: string;
+    prenom: string;
+    email?: string;
+    pays?: string;
+  }>
+  | null;
 }
 
 interface DbMatchingRow {
@@ -375,11 +375,11 @@ export async function getBeneficiaryDashboardAction(): Promise<BeneficiaryDashbo
       hasCompletedDiagnosis,
       diagnostic: diagnostic
         ? {
-            id: diagnostic.id,
-            domaine: diagnostic.domaine,
-            objectifPrincipal: diagnostic.objectifPrincipal,
-            isCompleted: diagnostic.isCompleted,
-          }
+          id: diagnostic.id,
+          domaine: diagnostic.domaine,
+          objectifPrincipal: diagnostic.objectifPrincipal,
+          isCompleted: diagnostic.isCompleted,
+        }
         : null,
       activeProgramsCount: typedPrograms.length,
       upcomingSessionsCount: upcomingSessions.length,

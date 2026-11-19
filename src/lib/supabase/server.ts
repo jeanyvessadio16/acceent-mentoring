@@ -28,7 +28,7 @@ export async function createClient() {
           );
         } catch {
           // La méthode setAll a été appelée depuis un Server Component.
-          // Ceci peut être ignoré si le middleware se charge déjà de rafraîchir les sessions.
+          // Ceci peut être ignoré si le proxy se charge déjà de rafraîchir les sessions.
         }
       },
     },
