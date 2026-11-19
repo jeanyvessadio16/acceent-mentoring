@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { WorkspaceLayoutShell, type WorkspaceNavItem } from "@/features/workspaces";
 import { getMentorWorkspaceDataAction } from "@/lib/actions/workspace";
 import { ROUTES } from "@/lib/constants";
@@ -16,6 +17,7 @@ export default async function MentorSpaceLayout({
 }: {
   children: React.ReactNode;
 }) {
+  await connection();
   const data = await getMentorWorkspaceDataAction();
 
   if (!data) {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileText, ArrowLeft, Shield, CheckCircle, Scale, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Scale } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
 
 export const metadata = {

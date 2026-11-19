@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { GraduationCap, Plus, Calendar, Clock, Video, User } from "lucide-react";
+import { GraduationCap, Plus, Calendar, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getRealMasterclassesAction } from "@/lib/actions/admin";
 
@@ -43,7 +43,7 @@ export default async function AdminMasterclassesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {masterclasses.map((mc: any) => (
+          {masterclasses.map((mc) => (
             <div
               key={mc.id}
               className="p-5 rounded-2xl bg-white border border-border shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"

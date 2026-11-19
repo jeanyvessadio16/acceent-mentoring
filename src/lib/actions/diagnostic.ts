@@ -17,12 +17,35 @@ export interface DiagnosticFormData {
   preferenceMentoring: string;
 }
 
+export interface DiagnosticRecommendation {
+  mentorId: string;
+  mentorProfileId: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  photoUrl: string | null;
+  fonction: string;
+  organisation: string;
+  anneesExperience: number;
+  expertises: string[];
+  secteurs: string[];
+  scoreTotal: number;
+  justification: string;
+}
+
+export interface SubmitDiagnosticResponseData {
+  message?: string;
+  redirectUrl?: string;
+  recommendationsCount?: number;
+  topRecommendations?: DiagnosticRecommendation[];
+}
+
 export interface DiagnosticActionResult {
   success: boolean;
   message?: string;
   error?: string;
   redirectUrl?: string;
-  data?: any;
+  data?: SubmitDiagnosticResponseData;
 }
 
 const API_BASE_URL = process.env.API_URL || "http://localhost:3001/api/v1";
@@ -69,7 +92,7 @@ export async function submitDiagnosticAction(
       cache: "no-store",
     });
 
-    const data = await res.json();
+    const data = (await res.json()) as SubmitDiagnosticResponseData;
 
     if (!res.ok) {
       return {
@@ -90,7 +113,7 @@ export async function submitDiagnosticAction(
       redirectUrl: data.redirectUrl || "/dashboard/beneficiaire",
       data,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Erreur submitDiagnosticAction :", err);
     return {
       success: false,
@@ -103,7 +126,9 @@ export async function submitDiagnosticAction(
 /**
  * Server Action : Obtenir les recommandations de mentors calculées par le matching
  */
-export async function getDiagnosticRecommendationsAction() {
+export async function getDiagnosticRecommendationsAction(): Promise<
+  DiagnosticRecommendation[]
+> {
   try {
     const supabase = await createClient();
     const {
@@ -134,7 +159,7 @@ export async function getDiagnosticRecommendationsAction() {
       return [];
     }
 
-    return await res.json();
+    return (await res.json()) as DiagnosticRecommendation[];
   } catch (err) {
     console.error("Erreur getDiagnosticRecommendationsAction :", err);
     return [];

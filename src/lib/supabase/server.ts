@@ -1,4 +1,6 @@
+import "server-only";
 import { createServerClient } from "@supabase/ssr";
+import { io } from "next/cache";
 import { cookies } from "next/headers";
 
 /**
@@ -6,6 +8,7 @@ import { cookies } from "next/headers";
  * Utilise les cookies asynchrones de Next.js App Router pour maintenir la session côté serveur.
  */
 export async function createClient() {
+  await io();
   const cookieStore = await cookies();
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

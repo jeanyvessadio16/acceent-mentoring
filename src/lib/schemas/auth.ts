@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isSafeHttpUrl } from '@/lib/utils/url-safety';
 
 /**
  * Expressions régulières (Regex) pour le contrôle strict des contraintes
@@ -94,10 +95,107 @@ export const registerSchema = z
       message: 'Vous devez consentir au traitement de vos données personnelles',
     }),
     newsletter: z.boolean(),
+
+    // Champs professionnels conditionnels pour Mentors & Experts
+    fonction: z
+      .string()
+      .max(120, 'La fonction ne doit pas dépasser 120 caractères')
+      .optional(),
+    organisation: z
+      .string()
+      .max(120, 'L\'organisation ne doit pas dépasser 120 caractères')
+      .optional(),
+    anneesExperience: z
+      .number({ message: 'Veuillez indiquer un nombre valide' })
+      .int('Le nombre d\'années doit être un entier')
+      .min(0, 'Valeur invalide')
+      .max(60, 'Valeur maximale : 60 ans')
+      .optional(),
+    typesMentoring: z.enum(['INDIVIDUEL', 'COLLECTIF', 'LES_DEUX']).optional(),
+    secteurs: z.array(z.string().min(1).max(80)).optional(),
+    expertises: z.array(z.string().min(1).max(60)).optional(),
+    biographie: z
+      .string()
+      .max(1500, 'La présentation ne doit pas dépasser 1500 caractères')
+      .optional(),
+    disponibilites: z
+      .string()
+      .max(150, 'Les disponibilités ne doivent pas dépasser 150 caractères')
+      .optional(),
+    linkedinUrl: z
+      .string()
+      .url('Veuillez fournir une URL LinkedIn valide (ex: https://linkedin.com/in/votre-profil)')
+      .refine((v) => isSafeHttpUrl(v), "L'URL doit commencer par https:// ou http://")
+      .or(z.literal(''))
+      .optional(),
+    references: z
+      .string()
+      .max(300, 'Les références ne doivent pas dépasser 300 caractères')
+      .optional(),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Les mots de passe ne correspondent pas',
-    path: ['confirmPassword'],
+  .superRefine((data, ctx) => {
+    if (data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Les mots de passe ne correspondent pas',
+        path: ['confirmPassword'],
+      });
+    }
+
+    if (data.accountType === 'mentor' || data.accountType === 'expert') {
+      if (!data.fonction || data.fonction.trim().length < 2) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Veuillez renseigner votre fonction ou poste actuel (2 caractères minimum)',
+          path: ['fonction'],
+        });
+      }
+
+      if (!data.organisation || data.organisation.trim().length < 2) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Veuillez renseigner votre organisation ou entreprise (2 caractères minimum)',
+          path: ['organisation'],
+        });
+      }
+
+      if (
+        typeof data.anneesExperience !== 'number' ||
+        !Number.isFinite(data.anneesExperience) ||
+        !Number.isInteger(data.anneesExperience) ||
+        data.anneesExperience < 1
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Veuillez indiquer votre nombre d\'années d\'expérience (minimum 1 an)',
+          path: ['anneesExperience'],
+        });
+      }
+
+      if (!data.secteurs || data.secteurs.length < 1) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Veuillez sélectionner ou ajouter au moins un secteur d\'activité',
+          path: ['secteurs'],
+        });
+      }
+
+      if (!data.expertises || data.expertises.length < 1) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Veuillez sélectionner ou ajouter au moins un domaine d\'expertise',
+          path: ['expertises'],
+        });
+      }
+
+      if (!data.biographie || data.biographie.trim().length < 30) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Veuillez rédiger une présentation de votre parcours (30 caractères minimum)',
+          path: ['biographie'],
+        });
+      }
+    }
   });
 
 export type RegisterFormData = z.infer<typeof registerSchema>;

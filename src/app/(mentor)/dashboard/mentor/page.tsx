@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { getMentorWorkspaceDataAction } from "@/lib/actions/workspace";
 import { ROUTES } from "@/lib/constants";
+import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 
 export const metadata: Metadata = {
   title: "Tableau de Bord Mentor | ACCEENT Mentoring",
@@ -188,17 +189,21 @@ export default async function MentorDashboardPage() {
                       </span>
                     </div>
                   </div>
-                  {session.meetingUrl && (
-                    <a
-                      href={session.meetingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-white bg-secondary hover:bg-secondary/90"
-                    >
-                      <Video className="h-3.5 w-3.5" />
-                      <span>Visio</span>
-                    </a>
-                  )}
+                  {(() => {
+                    const safeMeetingUrl = sanitizeExternalUrl(session.meetingUrl);
+                    if (!safeMeetingUrl) return null;
+                    return (
+                      <a
+                        href={safeMeetingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-white bg-secondary hover:bg-secondary/90"
+                      >
+                        <Video className="h-3.5 w-3.5" />
+                        <span>Visio</span>
+                      </a>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

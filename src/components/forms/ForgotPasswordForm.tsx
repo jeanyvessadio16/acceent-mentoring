@@ -105,7 +105,7 @@ export function ForgotPasswordForm({ onSuccess, className }: ForgotPasswordFormP
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="votre.email@exemple.com"
+            placeholder="Votre adresse email"
             aria-invalid={!!errors.email}
             aria-describedby={errors.email ? "email-error" : undefined}
             disabled={isSubmitting}

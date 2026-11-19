@@ -1,4 +1,4 @@
-import { UserCheck, Sparkles, MapPin, HeartHandshake, Calendar } from "lucide-react";
+import { MapPin } from "lucide-react";
 import type { AdminDashboardStats } from "@/types";
 
 interface DemographicDistributionCardProps {
@@ -83,7 +83,7 @@ export function DemographicDistributionCard({
           <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
             <div
               className="bg-emerald-500 h-full transition-all duration-500"
-              style={{ width: `${demographics.sdhPercentage * 5}%` }}
+              style={{ width: `${Math.min(100, demographics.sdhPercentage)}%` }}
             />
           </div>
           <p className="text-[11px] text-muted-foreground pt-1">
@@ -94,10 +94,10 @@ export function DemographicDistributionCard({
         {/* Âge Moyen */}
         <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
           <span className="text-xs font-medium text-muted-foreground">
-            Âge Moyen des Bénéficiaires
+            Âge Moyen des Inscrits
           </span>
           <p className="text-2xl font-bold text-foreground">
-            {demographics.averageAge} ans
+            {demographics.averageAge > 0 ? `${demographics.averageAge} ans` : "—"}
           </p>
           <p className="text-[11px] text-muted-foreground">
             Cœur de cible 18–35 ans (Jeunes diplômés & porteurs de projets)

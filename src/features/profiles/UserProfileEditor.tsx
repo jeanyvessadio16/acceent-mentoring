@@ -1,33 +1,36 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import Image from "next/image";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   User as UserIcon,
   Mail,
-  Phone,
-  MapPin,
-  Calendar,
   ShieldCheck,
   CheckCircle2,
   AlertTriangle,
   Loader2,
   Sparkles,
   GraduationCap,
-  Briefcase,
   Target,
-  Globe,
-  Clock,
   HeartHandshake,
   Plus,
   X,
   Award,
-  ChevronRight,
   Save,
-  HelpCircle,
+  Camera,
+  Upload,
+  Trash2,
 } from "lucide-react";
 import type { UserFullProfile } from "@/lib/actions/profile";
-import { updateUserFullProfileAction } from "@/lib/actions/profile";
+import {
+  updateUserFullProfileAction,
+  uploadProfilePhotoAction,
+  deleteProfilePhotoAction,
+} from "@/lib/actions/profile";
+import {
+  MAX_PROFILE_PHOTO_BYTES,
+  ALLOWED_PROFILE_PHOTO_MIME_TYPES,
+} from "@/lib/utils/avatar-upload";
 import { Button } from "@/components/ui/button";
 
 interface UserProfileEditorProps {
@@ -50,17 +53,6 @@ const SUGGESTED_SKILLS = [
   "Électrotechnique",
 ];
 
-const SUGGESTED_INTERESTS = [
-  "Tech & Innovation",
-  "Entrepreneuriat",
-  "Agriculture durable",
-  "Impact social",
-  "Artisanat & Mode",
-  "Énergies Renouvelables",
-  "Fintech",
-  "Santé & Bien-être",
-];
-
 const SUGGESTED_GOALS = [
   "Trouver un premier emploi",
   "Créer et lancer mon entreprise",
@@ -81,19 +73,25 @@ const SUGGESTED_LANGUAGES = [
 ];
 
 export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
+  const router = useRouter();
   const [profile, setProfile] = useState<UserFullProfile>(initialProfile);
   const [activeTab, setActiveTab] = useState<
     "identity" | "inclusion" | "career" | "skills" | "mentor"
   >("identity");
+
+  // Upload photo de profil
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
 
   // Champs de formulaires
   const [firstName, setFirstName] = useState(profile.prenom);
   const [lastName, setLastName] = useState(profile.nom);
   const [phone, setPhone] = useState(profile.telephone || "");
   const [photoUrl, setPhotoUrl] = useState(profile.photoUrl || "");
-  const [pays, setPays] = useState(profile.pays || "Sénégal");
+  const [pays, setPays] = useState(profile.pays || "");
   const [ville, setVille] = useState(profile.ville || "");
-  const [localisation, setLocalisation] = useState(profile.localisation || "");
 
   // Démographie
   const [age, setAge] = useState<number | "">(profile.age ?? "");
@@ -120,23 +118,16 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
   );
   const [newCompetenceInput, setNewCompetenceInput] = useState("");
 
-  const [centresInteret, setCentresInteret] = useState<string[]>(
-    profile.centresInteret || []
-  );
-  const [newInteretInput, setNewInteretInput] = useState("");
-
   const [objectifs, setObjectifs] = useState<string[]>(
     profile.objectifs || []
   );
   const [newObjectifInput, setNewObjectifInput] = useState("");
 
-  const [langues, setLangues] = useState<string[]>(profile.langues || ["Français"]);
-  const [newLangueInput, setNewLangueInput] = useState("");
+  const [langues, setLangues] = useState<string[]>(profile.langues || []);
 
   const [disponibilite, setDisponibilite] = useState(
     profile.disponibilite || ""
   );
-  const [isPublic, setIsPublic] = useState(profile.isPublic);
 
   // Mentor spécifique
   const isMentorOrExpert =
@@ -153,7 +144,10 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
   const [typesMentoring, setTypesMentoring] = useState<
     "INDIVIDUEL" | "COLLECTIF" | "LES_DEUX"
   >(
-    (profile.mentorProfile?.typesMentoring as any) || "INDIVIDUEL"
+    profile.mentorProfile?.typesMentoring === "COLLECTIF" ||
+      profile.mentorProfile?.typesMentoring === "LES_DEUX"
+      ? profile.mentorProfile.typesMentoring
+      : "INDIVIDUEL"
   );
   const [linkedinUrl, setLinkedinUrl] = useState(
     profile.mentorProfile?.linkedinUrl || ""
@@ -165,6 +159,110 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  const displayedPhotoUrl = localPreviewUrl || photoUrl;
+
+  const handlePhotoUpload = async (file: File) => {
+    setFeedback(null);
+
+    if (!(ALLOWED_PROFILE_PHOTO_MIME_TYPES as readonly string[]).includes(file.type)) {
+      setFeedback({
+        type: "error",
+        message: "Format non supporté. Veuillez sélectionner une image JPG ou PNG.",
+      });
+      return;
+    }
+
+    if (file.size <= 0) {
+      setFeedback({
+        type: "error",
+        message: "Le fichier sélectionné est vide.",
+      });
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_PHOTO_BYTES) {
+      setFeedback({
+        type: "error",
+        message: "La photo ne doit pas dépasser 5 Mo.",
+      });
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setLocalPreviewUrl(objectUrl);
+    setIsUploadingPhoto(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await uploadProfilePhotoAction(formData);
+
+      if (result.success) {
+        const nextUrl = result.photoUrl || "";
+        setPhotoUrl(nextUrl);
+        setProfile((prev) => ({
+          ...prev,
+          photoUrl: result.photoUrl || null,
+        }));
+        setFeedback({
+          type: "success",
+          message: result.message,
+        });
+        router.refresh();
+      } else {
+        setFeedback({
+          type: "error",
+          message: result.message || "Impossible de téléverser la photo.",
+        });
+      }
+    } catch {
+      setFeedback({
+        type: "error",
+        message: "Une erreur réseau est survenue pendant le téléversement.",
+      });
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+      setLocalPreviewUrl(null);
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    setFeedback(null);
+    setIsUploadingPhoto(true);
+
+    try {
+      const result = await deleteProfilePhotoAction();
+      if (result.success) {
+        setPhotoUrl("");
+        setProfile((prev) => ({
+          ...prev,
+          photoUrl: null,
+        }));
+        setFeedback({
+          type: "success",
+          message: result.message,
+        });
+        router.refresh();
+      } else {
+        setFeedback({
+          type: "error",
+          message: result.message || "Impossible de supprimer la photo.",
+        });
+      }
+    } catch {
+      setFeedback({
+        type: "error",
+        message: "Une erreur réseau est survenue lors de la suppression.",
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   // Gestion des tags
   const handleAddTag = (
@@ -199,7 +297,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
       photoUrl,
       pays,
       ville,
-      localisation,
+      localisation: profile.localisation || "",
       age: age === "" ? null : Number(age),
       sexe: sexe || undefined,
       milieuResidence: milieuResidence || undefined,
@@ -208,11 +306,11 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
       secteurActivite,
       anneesExperience: Number(anneesExperience),
       competences,
-      centresInteret,
+      centresInteret: profile.centresInteret || [],
       objectifs,
       langues,
       disponibilite,
-      isPublic,
+      isPublic: profile.isPublic,
       fonction,
       organisation,
       biographie,
@@ -308,9 +406,9 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="relative">
-              {photoUrl ? (
+              {displayedPhotoUrl ? (
                 <img
-                  src={photoUrl}
+                  src={displayedPhotoUrl}
                   alt={`${firstName} ${lastName}`}
                   className="w-16 h-16 rounded-full object-cover border-2 border-primary"
                 />
@@ -319,9 +417,21 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   {initials}
                 </div>
               )}
-              <span className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-1 border-2 border-white">
-                <CheckCircle2 className="h-3 w-3" />
-              </span>
+              {isUploadingPhoto && (
+                <div className="absolute inset-0 rounded-full bg-black/45 flex items-center justify-center">
+                  <Loader2 className="h-5 w-5 text-white animate-spin" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingPhoto}
+                title="Changer la photo de profil"
+                aria-label="Changer la photo de profil"
+                className="absolute -bottom-1 -right-1 bg-primary hover:bg-primary/90 text-white rounded-full p-1.5 border-2 border-white shadow-xs transition-colors disabled:opacity-60"
+              >
+                <Camera className="h-3 w-3" />
+              </button>
             </div>
 
             <div>
@@ -398,6 +508,20 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
           )}
         </div>
       </div>
+
+      {/* Input fichier caché (partagé entre la bannière et l'onglet Identité) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        className="hidden"
+        onChange={(e) => {
+          const selectedFile = e.target.files?.[0];
+          if (selectedFile) {
+            void handlePhotoUpload(selectedFile);
+          }
+        }}
+      />
 
       {/* FORMULAIRE PRINCIPAL AVEC ONGLETS */}
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -494,7 +618,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="Ex : Fatou"
+                  placeholder="Votre prénom"
                 />
               </div>
 
@@ -508,7 +632,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="Ex : Diassy"
+                  placeholder="Votre nom"
                 />
               </div>
 
@@ -523,7 +647,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-slate-50 text-slate-500 text-sm cursor-not-allowed"
                 />
                 <span className="text-[10px] text-muted-foreground mt-1 block">
-                  L'adresse email est liée à vos identifiants d'accès.
+                  L&apos;adresse email est liée à vos identifiants d&apos;accès.
                 </span>
               </div>
 
@@ -536,7 +660,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="+221 77 123 45 67"
+                  placeholder="Votre numéro de téléphone"
                 />
               </div>
 
@@ -549,7 +673,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   value={pays}
                   onChange={(e) => setPays(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="Sénégal"
+                  placeholder="Votre pays de résidence"
                 />
               </div>
 
@@ -562,21 +686,105 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   value={ville}
                   onChange={(e) => setVille(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="Ex : Dakar, Thiès, Saint-Louis..."
+                  placeholder="Votre ville ou région"
                 />
               </div>
 
               <div className="sm:col-span-2">
                 <label className="font-semibold text-foreground block mb-1.5">
-                  Photo de profil (URL de l'image)
+                  Photo de profil
                 </label>
-                <input
-                  type="url"
-                  value={photoUrl}
-                  onChange={(e) => setPhotoUrl(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="https://example.com/avatar.jpg"
-                />
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDraggingPhoto(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setIsDraggingPhoto(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDraggingPhoto(false);
+                    const droppedFile = e.dataTransfer.files?.[0];
+                    if (droppedFile) {
+                      void handlePhotoUpload(droppedFile);
+                    }
+                  }}
+                  className={`p-4 rounded-2xl border-2 border-dashed transition-colors flex flex-col sm:flex-row items-center gap-4 ${
+                    isDraggingPhoto
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-slate-50/70"
+                  }`}
+                >
+                  <div className="relative shrink-0">
+                    {displayedPhotoUrl ? (
+                      <img
+                        src={displayedPhotoUrl}
+                        alt={`${firstName} ${lastName}`}
+                        className="w-20 h-20 rounded-full object-cover border-2 border-primary/30 shadow-xs"
+                      />
+                    ) : (
+                      <div className="w-20 h-20 rounded-full bg-primary/10 text-primary font-bold text-xl flex items-center justify-center border border-primary/20">
+                        {initials}
+                      </div>
+                    )}
+                    {isUploadingPhoto && (
+                      <div className="absolute inset-0 rounded-full bg-black/45 flex items-center justify-center">
+                        <Loader2 className="h-5 w-5 text-white animate-spin" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 text-center sm:text-left space-y-2">
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">
+                        Téléversez votre photo depuis votre appareil
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Glissez-déposez une image ici ou cliquez sur le bouton ci-dessous.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isUploadingPhoto}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-xs gap-1.5 h-9 rounded-xl"
+                      >
+                        {isUploadingPhoto ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        <span>
+                          {photoUrl ? "Changer la photo" : "Choisir une photo"}
+                        </span>
+                      </Button>
+
+                      {photoUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={isUploadingPhoto}
+                          onClick={() => void handleRemovePhoto()}
+                          className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 h-9 rounded-xl"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          <span>Supprimer</span>
+                        </Button>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground">
+                      Formats acceptés : JPG ou PNG · Taille maximale : 5 Mo
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -590,7 +798,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                 Profil Démographique & Inclusion Sociale
               </h3>
               <p className="text-xs text-muted-foreground">
-                Ces informations nous permettent d'adapter nos programmes d'accompagnement et d'assurer une inclusion équitable.
+                Ces informations nous permettent d&apos;adapter nos programmes d&apos;accompagnement et d&apos;assurer une inclusion équitable.
               </p>
             </div>
 
@@ -618,7 +826,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                     setAge(e.target.value === "" ? "" : Number(e.target.value))
                   }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="Ex : 24"
+                  placeholder="Votre âge"
                 />
               </div>
 
@@ -628,7 +836,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                 </label>
                 <select
                   value={sexe}
-                  onChange={(e) => setSexe(e.target.value as any)}
+                  onChange={(e) => setSexe(e.target.value as "HOMME" | "FEMME" | "")}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
                   <option value="">Sélectionnez votre sexe</option>
@@ -643,7 +851,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                 </label>
                 <select
                   value={milieuResidence}
-                  onChange={(e) => setMilieuResidence(e.target.value as any)}
+                  onChange={(e) => setMilieuResidence(e.target.value as "RURAL" | "URBAIN" | "")}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
                   <option value="">Sélectionnez le milieu</option>
@@ -658,7 +866,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                     Situation de Handicap (SDH)
                   </span>
                   <span className="text-[11px] text-muted-foreground block mt-0.5">
-                    Permet de bénéficier d'aménagements et de mentors formés.
+                    Permet de bénéficier d&apos;aménagements et de mentors formés.
                   </span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -683,14 +891,14 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                 Parcours, Études & Expérience
               </h3>
               <p className="text-xs text-muted-foreground">
-                Partagez votre formation et votre secteur d'intérêt pour affiner le matching avec vos mentors.
+                Partagez votre formation et votre secteur d&apos;intérêt pour affiner le matching avec vos mentors.
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>
                 <label className="font-semibold text-foreground block mb-1.5">
-                  Niveau d'études
+                  Niveau d&apos;études
                 </label>
                 <select
                   value={niveauEtude}
@@ -702,7 +910,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   <option value="Baccalauréat">Baccalauréat</option>
                   <option value="Bac +2 / BTS / DUT">Bac +2 (BTS / DUT / DEUG)</option>
                   <option value="Licence / Bachelor">Licence / Bachelor (Bac +3)</option>
-                  <option value="Master / Ingénieur">Master / Diplôme d'Ingénieur (Bac +5)</option>
+                  <option value="Master / Ingénieur">Master / Diplôme d&apos;Ingénieur (Bac +5)</option>
                   <option value="Doctorat / PhD">Doctorat / PhD</option>
                   <option value="Formation Professionnelle">Formation Professionnelle certifiante</option>
                   <option value="Autodidacte">Autodidacte</option>
@@ -711,7 +919,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
 
               <div>
                 <label className="font-semibold text-foreground block mb-1.5">
-                  Secteur d'activité principal
+                  Secteur d&apos;activité principal
                 </label>
                 <select
                   value={secteurActivite}
@@ -719,10 +927,10 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
                   <option value="">Sélectionnez votre secteur</option>
-                  <option value="Technologies de l'Information & Digital">Technologies de l'Information & Digital</option>
+                  <option value="Technologies de l'Information & Digital">Technologies de l&apos;Information & Digital</option>
                   <option value="Agriculture & Agro-industrie">Agriculture & Agro-industrie</option>
                   <option value="Commerce, Vente & Distribution">Commerce, Vente & Distribution</option>
-                  <option value="Artisanat, Couture & Métiers d'Art">Artisanat, Couture & Métiers d'Art</option>
+                  <option value="Artisanat, Couture & Métiers d'Art">Artisanat, Couture & Métiers d&apos;Art</option>
                   <option value="Santé & Action Sociale">Santé & Action Sociale</option>
                   <option value="Éducation, Formation & Enseignement">Éducation, Formation & Enseignement</option>
                   <option value="Banque, Microfinance & Assurance">Banque, Microfinance & Assurance</option>
@@ -734,7 +942,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
 
               <div>
                 <label className="font-semibold text-foreground block mb-1.5">
-                  Années d'expérience professionnelle
+                  Années d&apos;expérience professionnelle
                 </label>
                 <input
                   type="number"
@@ -754,7 +962,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   type="text"
                   value={disponibilite}
                   onChange={(e) => setDisponibilite(e.target.value)}
-                  placeholder="Ex : 2 heures par semaine, les samedis"
+                  placeholder="Vos créneaux de disponibilité"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
@@ -814,7 +1022,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                       );
                     }
                   }}
-                  placeholder="Ajouter une compétence (ex: Gestion de projet)..."
+                  placeholder="Ajouter une compétence..."
                   className="flex-1 px-3.5 py-2 rounded-xl border border-border text-xs focus:outline-none focus:border-primary"
                 />
                 <Button
@@ -951,7 +1159,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   Langues de communication
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Indiquez les langues dans lesquelles vous êtes à l'aise pour échanger.
+                  Indiquez les langues dans lesquelles vous êtes à l&apos;aise pour échanger.
                 </p>
               </div>
 
@@ -1000,7 +1208,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                 Profil Mentorat & Expérience
               </h3>
               <p className="text-xs text-muted-foreground">
-                Présentez votre parcours professionnel et vos méthodes d'accompagnement.
+                Présentez votre parcours professionnel et vos méthodes d&apos;accompagnement.
               </p>
             </div>
 
@@ -1013,7 +1221,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   type="text"
                   value={fonction}
                   onChange={(e) => setFonction(e.target.value)}
-                  placeholder="Ex : Responsable R&D / Fondateur"
+                  placeholder="Votre fonction ou poste actuel"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
@@ -1026,7 +1234,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   type="text"
                   value={organisation}
                   onChange={(e) => setOrganisation(e.target.value)}
-                  placeholder="Ex : Teranga Tech"
+                  placeholder="Votre organisation ou entreprise"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
@@ -1037,7 +1245,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                 </label>
                 <select
                   value={typesMentoring}
-                  onChange={(e) => setTypesMentoring(e.target.value as any)}
+                  onChange={(e) => setTypesMentoring(e.target.value as "INDIVIDUEL" | "COLLECTIF" | "LES_DEUX")}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
                   <option value="INDIVIDUEL">Individuel (One-to-One)</option>
@@ -1054,7 +1262,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   type="url"
                   value={linkedinUrl}
                   onChange={(e) => setLinkedinUrl(e.target.value)}
-                  placeholder="https://linkedin.com/in/votre-profil"
+                  placeholder="Lien vers votre profil LinkedIn"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>

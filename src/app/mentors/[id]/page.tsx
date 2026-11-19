@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import {
   ArrowLeft,
   Award,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ROUTES } from "@/lib/constants";
+import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 
 export const instant = false;
 
@@ -51,6 +53,7 @@ export default async function MentorProfileDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await connection();
   const { id } = await params;
   const adminDb = createAdminClient();
 
@@ -96,6 +99,8 @@ export default async function MentorProfileDetailPage({
   const initials = userObj
     ? `${userObj.prenom?.[0] || ""}${userObj.nom?.[0] || "M"}`.toUpperCase()
     : "M";
+  const safePhotoUrl = sanitizeExternalUrl(mentorRecord.photoUrl);
+  const safeLinkedinUrl = sanitizeExternalUrl(mentorRecord.linkedinUrl);
 
   return (
     <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
@@ -114,9 +119,17 @@ export default async function MentorProfileDetailPage({
           {/* En-tête du mentor */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-primary text-white font-bold text-xl flex items-center justify-center shrink-0">
-                {initials}
-              </div>
+              {safePhotoUrl ? (
+                <img
+                  src={safePhotoUrl}
+                  alt={fullName}
+                  className="w-16 h-16 rounded-2xl object-cover border border-border shrink-0"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-primary text-white font-bold text-xl flex items-center justify-center shrink-0">
+                  {initials}
+                </div>
+              )}
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-bold text-foreground">{fullName}</h1>
@@ -148,9 +161,9 @@ export default async function MentorProfileDetailPage({
               </div>
             </div>
 
-            {mentorRecord.linkedinUrl && (
+            {safeLinkedinUrl && (
               <a
-                href={mentorRecord.linkedinUrl}
+                href={safeLinkedinUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border border-border text-foreground hover:bg-slate-50 transition-colors shrink-0"
@@ -223,7 +236,7 @@ export default async function MentorProfileDetailPage({
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {mentorRecord.langues?.length > 0
                     ? mentorRecord.langues.join(", ")
-                    : "Français"}
+                    : "Non renseigné"}
                 </p>
               </div>
             </div>

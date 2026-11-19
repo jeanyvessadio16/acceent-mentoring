@@ -229,6 +229,13 @@ export interface PendingValidationItem {
   organization?: string;
   yearsOfExperience: number;
   expertises: string[];
+  sectors?: string[];
+  bio?: string;
+  cvUrl?: string | null;
+  linkedinUrl?: string | null;
+  mentoringFormat?: string;
+  availability?: string | null;
+  references?: string | null;
   submittedAt: string;
   status: 'pending' | 'approved' | 'rejected';
 }

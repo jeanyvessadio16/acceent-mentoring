@@ -36,7 +36,7 @@ export function Footer() {
               />
             </div>
             <p className="text-white/70 text-sm leading-relaxed max-w-sm">
-              Plateforme d'accompagnement qui met en relation jeunes, femmes, professionnels
+              Plateforme d&apos;accompagnement qui met en relation jeunes, femmes, professionnels
               et entrepreneurs avec des mentors et des experts pour accélérer leurs parcours.
             </p>
           </div>
@@ -63,7 +63,7 @@ export function Footer() {
 
         <div className="mt-10 pt-6 border-t border-white/15 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-white/50">
           <p>© 2025 ACCEENT Mentoring. Tous droits réservés.</p>
-          <p>Sénégal & Afrique de l'Ouest</p>
+          <p>Sénégal & Afrique de l&apos;Ouest</p>
         </div>
       </div>
     </footer>

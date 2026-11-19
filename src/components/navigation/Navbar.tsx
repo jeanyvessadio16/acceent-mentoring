@@ -21,9 +21,10 @@ const NAV_LINKS = [
 ];
 
 export function Navbar() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [openedPath, setOpenedPath] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const isOpen = openedPath === pathname;
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 12);
@@ -31,10 +32,6 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Fermer le menu mobile lors du changement de route
-  useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
 
   // Verrouiller le scroll du body lorsque le menu mobile est ouvert
   useEffect(() => {
@@ -128,7 +125,7 @@ export function Navbar() {
               aria-label={isOpen ? "Fermer le menu" : "Ouvrir le menu"}
               aria-expanded={isOpen}
               aria-controls="mobile-sidebar"
-              onClick={() => setIsOpen(true)}
+              onClick={() => setOpenedPath(pathname)}
               className={cn(
                 "md:hidden inline-flex items-center justify-center p-2 rounded-lg",
                 "text-foreground hover:bg-primary/8 hover:text-primary",
@@ -147,7 +144,7 @@ export function Navbar() {
           "fixed inset-0 z-50 bg-black/50 backdrop-blur-xs transition-opacity duration-300 md:hidden",
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
-        onClick={() => setIsOpen(false)}
+        onClick={() => setOpenedPath(null)}
         aria-hidden="true"
       />
 
@@ -167,7 +164,7 @@ export function Navbar() {
         <div className="flex items-center justify-between px-5 h-16 border-b border-border shrink-0">
           <Link
             href={ROUTES.HOME}
-            onClick={() => setIsOpen(false)}
+            onClick={() => setOpenedPath(null)}
             className="flex items-center focus-visible:outline-none"
           >
             <Image
@@ -180,7 +177,7 @@ export function Navbar() {
           </Link>
           <button
             type="button"
-            onClick={() => setIsOpen(false)}
+            onClick={() => setOpenedPath(null)}
             aria-label="Fermer le menu"
             className="inline-flex items-center justify-center h-10 w-10 rounded-full text-foreground/70 hover:text-foreground hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
@@ -199,7 +196,7 @@ export function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setIsOpen(false)}
+                onClick={() => setOpenedPath(null)}
                 className={cn(
                   "flex items-center px-4 py-3 rounded-xl text-base font-semibold transition-all",
                   isActive
@@ -218,7 +215,7 @@ export function Navbar() {
         <div className="p-5 border-t border-border bg-slate-50/80 shrink-0 flex flex-col gap-3">
           <Link
             href={ROUTES.AUTH.LOGIN}
-            onClick={() => setIsOpen(false)}
+            onClick={() => setOpenedPath(null)}
             className="flex items-center justify-center gap-2 h-11 w-full rounded-full text-sm font-semibold text-primary border border-primary/30 hover:border-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <LogIn className="h-4 w-4" aria-hidden />
@@ -226,7 +223,7 @@ export function Navbar() {
           </Link>
           <Link
             href={ROUTES.AUTH.REGISTER}
-            onClick={() => setIsOpen(false)}
+            onClick={() => setOpenedPath(null)}
             className="flex items-center justify-center gap-2 h-11 w-full rounded-full text-sm font-semibold text-white bg-primary hover:bg-primary/90 shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <span>Rejoindre la plateforme</span>

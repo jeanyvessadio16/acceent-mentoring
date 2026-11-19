@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { REGEX_PATTERNS } from "./auth";
+import { isSafeHttpUrl } from "@/lib/utils/url-safety";
 
 export const profileUpdateSchema = z.object({
   // Identité & Coordonnées
@@ -17,8 +18,13 @@ export const profileUpdateSchema = z.object({
     .string()
     .regex(/^\+?[0-9\s\-().]{8,25}$/, "Format de numéro de téléphone invalide (ex: +221 77 123 45 67)")
     .or(z.literal("")),
-  photoUrl: z.string().url("Veuillez fournir une URL d'image valide").or(z.literal("")).optional(),
-  pays: z.string().min(2, "Le pays est requis").default("Sénégal"),
+  photoUrl: z
+    .string()
+    .url("Veuillez fournir une URL d'image valide")
+    .refine((v) => isSafeHttpUrl(v), "L'URL doit commencer par https:// ou http://")
+    .or(z.literal(""))
+    .optional(),
+  pays: z.string().min(2, "Le pays est requis"),
   ville: z.string().max(100).optional().default(""),
   localisation: z.string().max(150).optional().default(""),
 
@@ -48,7 +54,7 @@ export const profileUpdateSchema = z.object({
   competences: z.array(z.string().min(1).max(50)).default([]),
   centresInteret: z.array(z.string().min(1).max(50)).default([]),
   objectifs: z.array(z.string().min(1).max(100)).default([]),
-  langues: z.array(z.string().min(1).max(50)).default(["Français"]),
+  langues: z.array(z.string().min(1).max(50)).default([]),
   disponibilite: z.string().max(150).optional().default(""),
   isPublic: z.boolean().default(true),
 
@@ -57,7 +63,13 @@ export const profileUpdateSchema = z.object({
   organisation: z.string().max(100).optional().default(""),
   biographie: z.string().max(1000).optional().default(""),
   typesMentoring: z.enum(["INDIVIDUEL", "COLLECTIF", "LES_DEUX"]).optional().default("INDIVIDUEL"),
-  linkedinUrl: z.string().url("URL LinkedIn invalide").or(z.literal("")).optional().default(""),
+  linkedinUrl: z
+    .string()
+    .url("URL LinkedIn invalide")
+    .refine((v) => isSafeHttpUrl(v), "L'URL doit commencer par https:// ou http://")
+    .or(z.literal(""))
+    .optional()
+    .default(""),
 });
 
 export type ProfileUpdateFormData = z.infer<typeof profileUpdateSchema>;

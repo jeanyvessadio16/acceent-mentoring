@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -10,6 +10,7 @@ import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { loginSchema, type LoginFormData } from "@/lib/schemas/auth";
 import { loginAction } from "@/lib/actions/auth";
 import { ROUTES } from "@/lib/constants";
+import { sanitizeInternalRedirectPath } from "@/lib/utils/url-safety";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ interface LoginFormProps {
 
 export function LoginForm({ onSuccess, className }: LoginFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -64,7 +66,13 @@ export function LoginForm({ onSuccess, className }: LoginFormProps) {
         }
 
         // Redirection contextuelle selon le rôle et l'état du profil
+        const safeRedirect = sanitizeInternalRedirectPath(
+          searchParams.get("redirect")
+        );
+        const mustCompleteOnboarding =
+          res.redirectUrl === ROUTES.DASHBOARDS.MENTOR_CANDIDATURE;
         const destination =
+          (!mustCompleteOnboarding && safeRedirect) ||
           res.redirectUrl ||
           res.dashboardUrl ||
           ROUTES.DASHBOARDS.BENEFICIAIRE;
@@ -116,7 +124,7 @@ export function LoginForm({ onSuccess, className }: LoginFormProps) {
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="votre.email@exemple.com"
+            placeholder="Votre adresse email"
             aria-invalid={!!errors.email}
             aria-describedby={errors.email ? "email-error" : undefined}
             disabled={isSubmitting}

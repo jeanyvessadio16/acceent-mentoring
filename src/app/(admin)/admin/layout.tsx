@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { AdminSidebar, AdminHeader } from "@/features/administration";
 import {
   getPendingValidationsAction,
@@ -19,6 +20,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+  await connection();
   const currentUser = await getCurrentAdminUserAction();
   if (!currentUser) {
     redirect(ROUTES.AUTH.LOGIN);

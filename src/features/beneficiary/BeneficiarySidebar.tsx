@@ -13,7 +13,6 @@ import {
   Sparkles,
   LogOut,
   User,
-  Clock,
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,6 +24,7 @@ interface BeneficiarySidebarProps {
     prenom?: string;
     nom?: string;
     email?: string;
+    photoUrl?: string | null;
   } | null;
   hasCompletedDiagnosis?: boolean;
   onNavigate?: () => void;
@@ -166,9 +166,17 @@ export function BeneficiarySidebar({
           title="Consulter et modifier mon profil"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-secondary/30 text-secondary border border-secondary/40 flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
-              {initials}
-            </div>
+            {user?.photoUrl ? (
+              <img
+                src={user.photoUrl}
+                alt={`${user.prenom || ""} ${user.nom || ""}`.trim() || "Profil"}
+                className="w-8 h-8 rounded-full object-cover shrink-0 border border-secondary/40 group-hover:scale-105 transition-transform"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-secondary/30 text-secondary border border-secondary/40 flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                {initials}
+              </div>
+            )}
             <div className="truncate text-left">
               <p className="text-xs font-semibold text-white truncate">
                 {user ? `${user.prenom} ${user.nom}` : "Bénéficiaire"}

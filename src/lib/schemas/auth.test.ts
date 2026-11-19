@@ -87,6 +87,81 @@ describe("Validation des Schémas d'Authentification (Auth)", () => {
       });
       expect(res.success).toBe(false);
     });
+
+    it("accepte un partenaire sans champs mentor/expert", () => {
+      const res = registerSchema.safeParse({
+        ...validRegistration,
+        accountType: "partner",
+        milieuResidence: "Urbain",
+      });
+      expect(res.success).toBe(true);
+    });
+
+    it("rejette un mentor ou un expert si les champs professionnels requis manquent", () => {
+      const mentorMissing = registerSchema.safeParse({
+        ...validRegistration,
+        accountType: "mentor",
+        milieuResidence: "Urbain",
+      });
+      expect(mentorMissing.success).toBe(false);
+      if (!mentorMissing.success) {
+        const paths = mentorMissing.error.issues.map((i) => i.path[0]);
+        expect(paths).toContain("fonction");
+        expect(paths).toContain("organisation");
+        expect(paths).toContain("anneesExperience");
+        expect(paths).toContain("secteurs");
+        expect(paths).toContain("expertises");
+        expect(paths).toContain("biographie");
+      }
+
+      const expertShortBio = registerSchema.safeParse({
+        ...validRegistration,
+        accountType: "expert",
+        milieuResidence: "Urbain",
+        fonction: "Consultant Senior",
+        organisation: "Cabinet Dakar",
+        anneesExperience: 8,
+        secteurs: ["Finance & Banque"],
+        expertises: ["Levée de fonds"],
+        biographie: "Trop court",
+      });
+      expect(expertShortBio.success).toBe(false);
+    });
+
+    it("valide un mentor et un expert lorsque tous les champs professionnels requis sont fournis", () => {
+      const validMentor = registerSchema.safeParse({
+        ...validRegistration,
+        accountType: "mentor",
+        milieuResidence: "Urbain",
+        fonction: "Directrice Technique",
+        organisation: "Teranga Tech",
+        anneesExperience: 6,
+        typesMentoring: "INDIVIDUEL",
+        secteurs: ["Numérique & Tech"],
+        expertises: ["Développement Web", "Leadership"],
+        biographie:
+          "Ingénieure logiciel avec plus de 6 ans d'expérience dans l'accompagnement de jeunes talents.",
+      });
+      expect(validMentor.success).toBe(true);
+
+      const validExpert = registerSchema.safeParse({
+        ...validRegistration,
+        accountType: "expert",
+        milieuResidence: "Rural",
+        fonction: "Expert Agro-économiste",
+        organisation: "AgriImpact Sénégal",
+        anneesExperience: 10,
+        typesMentoring: "LES_DEUX",
+        secteurs: ["Agrobusiness"],
+        expertises: ["Entrepreneuriat", "Levée de fonds"],
+        biographie:
+          "Spécialiste en financement agricole et chaînes de valeur durables depuis 10 ans en Afrique de l'Ouest.",
+        linkedinUrl: "https://linkedin.com/in/expert-agri",
+        disponibilites: "3h par semaine",
+        references: "Programme PASA",
+      });
+      expect(validExpert.success).toBe(true);
+    });
   });
 
   describe("Règles de redirection contextuelle (getRedirectUrl & getDashboardUrl)", () => {

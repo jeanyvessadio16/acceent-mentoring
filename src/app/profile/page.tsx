@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { getCurrentUserProfile } from "@/lib/actions/profile";
 import { ROUTES } from "@/lib/constants";
 
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function GeneralProfileRedirectPage() {
+  await connection();
   const profile = await getCurrentUserProfile();
 
   if (!profile) {

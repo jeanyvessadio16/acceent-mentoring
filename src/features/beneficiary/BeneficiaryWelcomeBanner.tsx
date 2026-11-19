@@ -12,7 +12,6 @@ interface BeneficiaryWelcomeBannerProps {
 export function BeneficiaryWelcomeBanner({
   user,
   hasCompletedDiagnosis,
-  diagnostic,
 }: BeneficiaryWelcomeBannerProps) {
   return (
     <div className="space-y-4">

@@ -23,6 +23,12 @@ export function getDashboardUrl(role?: string): string {
   }
 }
 
+function getNonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0
+    ? value
+    : undefined;
+}
+
 /**
  * Calcule l'URL de redirection contextuelle vers l'espace de l'utilisateur
  * (ex: /diagnostic si le bénéficiaire n'a pas fait son diagnostic, ou tableau de bord dédié)
@@ -33,13 +39,13 @@ export function getRedirectUrl(user: {
   accountStatus?: string;
   mentorProfile?: { statutValidation?: string } | null;
   diagnostic?: { isCompleted?: boolean } | null;
-  user_metadata?: Record<string, any>;
+  user_metadata?: Record<string, unknown>;
 }): string {
   const metadata = user.user_metadata || {};
   const normalizedRole = (
     user.role ||
-    metadata.role ||
-    metadata.account_type ||
+    getNonEmptyString(metadata.role) ||
+    getNonEmptyString(metadata.account_type) ||
     "BENEFICIAIRE"
   ).toUpperCase();
 
@@ -50,8 +56,8 @@ export function getRedirectUrl(user: {
     case "MENTOR": {
       const mentorStatus =
         user.mentorProfile?.statutValidation ||
-        metadata.status ||
-        metadata.statutCompte ||
+        getNonEmptyString(metadata.status) ||
+        getNonEmptyString(metadata.statutCompte) ||
         "PENDING";
 
       if (mentorStatus === "PENDING" || !user.mentorProfile) {
@@ -70,11 +76,12 @@ export function getRedirectUrl(user: {
     case "BENEFICIARY":
     case "BENEFICIAIRE":
     default: {
-      const isDiagnosticCompleted =
+      const isDiagnosticCompleted = Boolean(
         user.diagnostic?.isCompleted ??
-        metadata.diagnostic_completed ??
-        metadata.has_completed_diagnosis ??
-        false;
+          metadata.diagnostic_completed ??
+          metadata.has_completed_diagnosis ??
+          false
+      );
 
       // Si le diagnostic initial (F04) n'a pas encore été complété, orienter vers le diagnostic
       if (!isDiagnosticCompleted) {

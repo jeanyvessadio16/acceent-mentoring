@@ -66,6 +66,7 @@ interface WorkspaceUserInfo {
   prenom?: string;
   nom?: string;
   email?: string;
+  photoUrl?: string | null;
 }
 
 interface WorkspaceLayoutShellProps {
@@ -210,9 +211,17 @@ function WorkspaceSidebarContent({
           title="Consulter et modifier mon profil"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-secondary/30 text-secondary border border-secondary/40 flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
-              {initials}
-            </div>
+            {user?.photoUrl ? (
+              <img
+                src={user.photoUrl}
+                alt={displayName}
+                className="w-8 h-8 rounded-full object-cover shrink-0 border border-secondary/40 group-hover:scale-105 transition-transform"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-secondary/30 text-secondary border border-secondary/40 flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                {initials}
+              </div>
+            )}
             <div className="truncate text-left">
               <p className="text-xs font-semibold text-white truncate">
                 {displayName}
@@ -305,9 +314,17 @@ export function WorkspaceLayoutShell({
               className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity"
               title="Accéder à mon profil"
             >
-              <div className="w-8 h-8 rounded-full bg-secondary text-white font-bold text-xs flex items-center justify-center shadow-xs">
-                {initials}
-              </div>
+              {user?.photoUrl ? (
+                <img
+                  src={user.photoUrl}
+                  alt={user.prenom || "Mon Profil"}
+                  className="w-8 h-8 rounded-full object-cover shadow-xs border border-secondary/40"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-secondary text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  {initials}
+                </div>
+              )}
               <span className="hidden md:inline-block text-xs font-semibold text-foreground">
                 {user?.prenom || "Mon Profil"}
               </span>

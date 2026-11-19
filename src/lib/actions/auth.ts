@@ -5,9 +5,18 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
-import { loginSchema, forgotPasswordSchema, registerSchema } from "@/lib/schemas/auth";
+import {
+  loginSchema,
+  forgotPasswordSchema,
+  registerSchema,
+} from "@/lib/schemas/auth";
 import { ROUTES } from "@/lib/constants";
 import { getDashboardUrl, getRedirectUrl } from "@/lib/utils/auth-redirect";
+import {
+  CV_STORAGE_BUCKET,
+  validateCvPdfBuffer,
+  buildCvStoragePath,
+} from "@/lib/utils/cv-upload";
 
 export type AuthActionResult = {
   success: boolean;
@@ -58,7 +67,8 @@ export async function loginAction(
     if (error?.message.includes("Invalid login credentials")) {
       errorMessage = "Adresse email ou mot de passe incorrect.";
     } else if (error?.message.includes("Email not confirmed")) {
-      errorMessage = "Veuillez confirmer votre adresse email avant de vous connecter.";
+      errorMessage =
+        "Veuillez confirmer votre adresse email avant de vous connecter.";
     }
 
     return {
@@ -76,15 +86,22 @@ export async function loginAction(
     email: string;
     role: string;
     statutCompte: string;
-    MentorProfile?: { statutValidation?: string } | Array<{ statutValidation?: string }> | null;
-    Diagnostic?: { isCompleted?: boolean } | Array<{ isCompleted?: boolean }> | null;
+    MentorProfile?:
+      | { statutValidation?: string }
+      | Array<{ statutValidation?: string }>
+      | null;
+    Diagnostic?:
+      | { isCompleted?: boolean }
+      | Array<{ isCompleted?: boolean }>
+      | null;
   }>(
     adminDb,
     { id: data.user.id, email: data.user.email },
     "id, email, role, statutCompte, MentorProfile(statutValidation), Diagnostic(isCompleted)"
   );
 
-  const status = dbUser?.statutCompte || metadata.status || metadata.statutCompte || "ACTIVE";
+  const status =
+    dbUser?.statutCompte || metadata.status || metadata.statutCompte || "ACTIVE";
 
   if (status === "SUSPENDED") {
     await supabase.auth.signOut();
@@ -110,7 +127,8 @@ export async function loginAction(
     ? dbUser.Diagnostic[0] ?? null
     : dbUser?.Diagnostic ?? null;
 
-  const userRole = dbUser?.role || metadata.role || metadata.account_type || "BENEFICIAIRE";
+  const userRole =
+    dbUser?.role || metadata.role || metadata.account_type || "BENEFICIAIRE";
 
   const redirectUrl = getRedirectUrl({
     role: userRole,
@@ -138,17 +156,70 @@ export async function loginAction(
  * Inscription complète avec rôle et informations démographiques via Supabase Auth + synchronisation PostgreSQL
  */
 export async function registerAction(
-  values: unknown
+  values: FormData | unknown
 ): Promise<AuthActionResult> {
-  const parsed = registerSchema.safeParse(values);
+  let rawPayload: unknown = values;
+  let cvFile: File | null = null;
+
+  if (values instanceof FormData) {
+    const rawJson = values.get("payload");
+    if (typeof rawJson === "string") {
+      try {
+        rawPayload = JSON.parse(rawJson);
+      } catch {
+        return {
+          success: false,
+          error: "Les données du formulaire sont invalides.",
+        };
+      }
+    } else {
+      return {
+        success: false,
+        error: "Les données du formulaire sont manquantes.",
+      };
+    }
+
+    const cvEntry = values.get("cvFile");
+    cvFile = cvEntry instanceof File && cvEntry.size > 0 ? cvEntry : null;
+  }
+
+  const parsed = registerSchema.safeParse(rawPayload);
   if (!parsed.success) {
     return {
       success: false,
-      error: "Les données fournies ne respectent pas le format attendu.",
+      error:
+        parsed.error.issues[0]?.message ||
+        "Les données fournies ne respectent pas le format attendu.",
     };
   }
 
   const data = parsed.data;
+  const normalizedRole =
+    ROLE_MAP[data.accountType.toLowerCase()] || "BENEFICIAIRE";
+  const isMentorOrExpert =
+    normalizedRole === "MENTOR" || normalizedRole === "EXPERT";
+
+  // Pré-validation stricte du CV PDF avant création du compte Supabase Auth
+  let cvBytes: Uint8Array | null = null;
+  if (isMentorOrExpert) {
+    if (!cvFile) {
+      return {
+        success: false,
+        error:
+          "Veuillez joindre votre CV au format PDF pour soumettre votre candidature.",
+      };
+    }
+
+    cvBytes = new Uint8Array(await cvFile.arrayBuffer());
+    const cvValidation = validateCvPdfBuffer(cvFile.size, cvBytes);
+    if (!cvValidation.valid) {
+      return {
+        success: false,
+        error: cvValidation.error,
+      };
+    }
+  }
+
   const supabase = await createClient();
 
   const { data: signUpData, error } = await supabase.auth.signUp({
@@ -170,6 +241,13 @@ export async function registerAction(
         accept_terms: data.acceptTerms,
         accept_privacy: data.acceptPrivacy,
         newsletter: data.newsletter,
+        ...(isMentorOrExpert
+          ? {
+              fonction: data.fonction?.trim(),
+              organisation: data.organisation?.trim(),
+              annees_experience: data.anneesExperience,
+            }
+          : {}),
       },
     },
   });
@@ -186,7 +264,6 @@ export async function registerAction(
     };
   }
 
-  const normalizedRole = ROLE_MAP[data.accountType.toLowerCase()] || "BENEFICIAIRE";
   const statutCompte = normalizedRole === "BENEFICIAIRE" ? "ACTIVE" : "PENDING";
   const normalizedSexe =
     data.sexe === "Femme" ? "FEMME" : data.sexe === "Homme" ? "HOMME" : null;
@@ -198,7 +275,7 @@ export async function registerAction(
       : null;
   const situationHandicap = data.sdh === "Oui";
 
-  // Synchronisation immédiate dans PostgreSQL
+  // Synchronisation immédiate et atomique dans PostgreSQL + stockage privé du CV
   if (signUpData?.user) {
     const adminDb = createAdminClient();
     const { data: existingDbUser } = await findDbUserByAuth<{ id: string }>(
@@ -207,71 +284,175 @@ export async function registerAction(
       "id"
     );
 
-    if (!existingDbUser) {
-      const now = new Date().toISOString();
-      const newUserId = crypto.randomUUID();
+    if (existingDbUser) {
+      return {
+        success: false,
+        error: "Un compte existe déjà avec cette adresse email.",
+      };
+    }
 
-      const { error: insertUserErr } = await adminDb.from("User").insert({
-        id: newUserId,
-        supabaseUid: signUpData.user.id,
-        email: data.email,
-        nom: data.lastName.trim(),
-        prenom: data.firstName.trim(),
-        telephone: data.phone || null,
-        pays: data.country || "Sénégal",
-        role: normalizedRole,
-        statutCompte,
-        age: data.age ?? null,
-        sexe: normalizedSexe,
-        milieuResidence: normalizedMilieu,
-        situationHandicap,
-        langue: "fr",
-        consentCgu: Boolean(data.acceptTerms),
-        consentData: Boolean(data.acceptPrivacy),
+    const now = new Date().toISOString();
+    const newUserId = crypto.randomUUID();
+    let createdDbUserId: string | null = null;
+    let uploadedCvPath: string | null = null;
+
+    const rollbackRegistration = async () => {
+      if (uploadedCvPath) {
+        try {
+          await adminDb.storage.from(CV_STORAGE_BUCKET).remove([uploadedCvPath]);
+        } catch (cleanupErr) {
+          console.error("Erreur nettoyage CV lors du rollback :", cleanupErr);
+        }
+      }
+      if (createdDbUserId) {
+        try {
+          await adminDb.from("User").delete().eq("id", createdDbUserId);
+        } catch (dbCleanupErr) {
+          console.error("Erreur suppression User lors du rollback :", dbCleanupErr);
+        }
+      }
+      try {
+        await adminDb.auth.admin.deleteUser(signUpData.user!.id);
+      } catch (authCleanupErr) {
+        console.error(
+          "Erreur suppression Supabase Auth lors du rollback :",
+          authCleanupErr
+        );
+      }
+    };
+
+    const { error: insertUserErr } = await adminDb.from("User").insert({
+      id: newUserId,
+      supabaseUid: signUpData.user.id,
+      email: data.email,
+      nom: data.lastName.trim(),
+      prenom: data.firstName.trim(),
+      telephone: data.phone || null,
+      pays: data.country || "Sénégal",
+      role: normalizedRole,
+      statutCompte,
+      age: data.age ?? null,
+      sexe: normalizedSexe,
+      milieuResidence: normalizedMilieu,
+      situationHandicap,
+      langue: "fr",
+      consentCgu: Boolean(data.acceptTerms),
+      consentData: Boolean(data.acceptPrivacy),
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    if (insertUserErr) {
+      console.error("Erreur insertion User après register :", insertUserErr.message);
+      await rollbackRegistration();
+      return {
+        success: false,
+        error:
+          insertUserErr.code === "23505"
+            ? "Un compte existe déjà avec cette adresse email."
+            : "Impossible de finaliser la création du compte. Veuillez réessayer.",
+      };
+    }
+
+    createdDbUserId = newUserId;
+
+    const { error: profileInsertErr } = await adminDb
+      .from("UserProfile")
+      .insert({
+        id: crypto.randomUUID(),
+        userId: newUserId,
+        anneesExperience: isMentorOrExpert ? data.anneesExperience ?? 1 : 0,
+        secteurActivite:
+          isMentorOrExpert && data.secteurs?.[0] ? data.secteurs[0] : null,
+        competences: isMentorOrExpert ? data.expertises || [] : [],
+        centresInteret: [],
+        objectifs: [],
+        langues: ["Français"],
+        disponibilite: isMentorOrExpert
+          ? data.disponibilites?.trim() || null
+          : null,
         createdAt: now,
         updatedAt: now,
       });
 
-      if (insertUserErr && insertUserErr.code !== "23505") {
-        console.error("Erreur insertion User après register :", insertUserErr.message);
-      } else if (!insertUserErr) {
-        await adminDb.from("UserProfile").insert({
+    if (profileInsertErr) {
+      console.error(
+        "Erreur insertion UserProfile après register :",
+        profileInsertErr.message
+      );
+      await rollbackRegistration();
+      return {
+        success: false,
+        error: "Impossible d'initialiser votre profil utilisateur.",
+      };
+    }
+
+    if (isMentorOrExpert) {
+      if (cvBytes) {
+        const cvStoragePath = buildCvStoragePath(newUserId);
+        const { error: cvUploadErr } = await adminDb.storage
+          .from(CV_STORAGE_BUCKET)
+          .upload(cvStoragePath, Buffer.from(cvBytes), {
+            contentType: "application/pdf",
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (cvUploadErr) {
+          console.error("Erreur téléversement CV PDF :", cvUploadErr.message);
+          await rollbackRegistration();
+          return {
+            success: false,
+            error:
+              "Impossible de téléverser votre CV PDF. L'inscription a été annulée.",
+          };
+        }
+
+        uploadedCvPath = cvStoragePath;
+      }
+
+      const { error: mentorInsertErr } = await adminDb
+        .from("MentorProfile")
+        .insert({
           id: crypto.randomUUID(),
           userId: newUserId,
-          competences: [],
-          centresInteret: [],
-          objectifs: [],
-          langues: ["fr"],
+          fonction: data.fonction!.trim(),
+          organisation: data.organisation!.trim(),
+          anneesExperience: data.anneesExperience ?? 1,
+          expertises: data.expertises || [],
+          secteurs: data.secteurs || [],
+          langues: ["Français"],
+          publicsAccompagnes: [],
+          typesMentoring: data.typesMentoring || "INDIVIDUEL",
+          disponibilites: data.disponibilites?.trim() || null,
+          biographie: data.biographie!.trim(),
+          cvUrl: uploadedCvPath,
+          linkedinUrl: data.linkedinUrl?.trim() || null,
+          references: data.references?.trim() || null,
+          statutValidation: "PENDING",
+          isAvailable: false,
           createdAt: now,
           updatedAt: now,
         });
 
-        if (normalizedRole === "MENTOR") {
-          await adminDb.from("MentorProfile").insert({
-            id: crypto.randomUUID(),
-            userId: newUserId,
-            fonction: "En attente de renseignement",
-            organisation: "Non renseigné",
-            anneesExperience: 0,
-            expertises: [],
-            secteurs: [],
-            langues: ["fr"],
-            publicsAccompagnes: [],
-            biographie: "Profil mentor en cours de complétion.",
-            statutValidation: "PENDING",
-            isAvailable: false,
-            createdAt: now,
-            updatedAt: now,
-          });
-        }
+      if (mentorInsertErr) {
+        console.error(
+          "Erreur insertion MentorProfile :",
+          mentorInsertErr.message
+        );
+        await rollbackRegistration();
+        return {
+          success: false,
+          error:
+            "Impossible d'enregistrer votre profil mentor. L'inscription a été annulée.",
+        };
       }
     }
   }
 
   const redirectUrl = getRedirectUrl({
     role: normalizedRole,
-    mentorProfile:
-      normalizedRole === "MENTOR" ? { statutValidation: "PENDING" } : null,
+    mentorProfile: isMentorOrExpert ? { statutValidation: "PENDING" } : null,
     diagnostic: normalizedRole === "BENEFICIAIRE" ? { isCompleted: false } : null,
     user_metadata: {
       role: normalizedRole,
@@ -282,6 +463,10 @@ export async function registerAction(
   const dashboardUrl = getDashboardUrl(normalizedRole);
 
   revalidatePath("/", "layout");
+  revalidatePath("/admin/validations");
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/dashboard");
+
   return {
     success: true,
     message:
@@ -292,7 +477,7 @@ export async function registerAction(
 }
 
 /**
- * Réinitialisation du mot de passe (envoi d'email avec lien magique / token)
+ * Réinitialisation du mot de passe (envoi d'email avec lien magique vers /reset-password)
  */
 export async function forgotPasswordAction(
   values: unknown
@@ -307,8 +492,13 @@ export async function forgotPasswordAction(
 
   const { email } = parsed.data;
   const supabase = await createClient();
+  const siteUrl = (
+    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  ).replace(/\/+$/, "");
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
+  });
 
   if (error) {
     return {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { BeneficiarySidebar, BeneficiaryHeader } from "@/features/beneficiary";
 import { getBeneficiaryDashboardAction } from "@/lib/actions/beneficiary";
 import { ROUTES } from "@/lib/constants";
@@ -16,6 +17,7 @@ export default async function BeneficiarySpaceLayout({
 }: {
   children: React.ReactNode;
 }) {
+  await connection();
   const data = await getBeneficiaryDashboardAction();
 
   if (!data) {

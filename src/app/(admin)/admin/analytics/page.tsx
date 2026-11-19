@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BarChart3, Download, Users, TrendingUp, CheckCircle2, Award } from "lucide-react";
+import { Download, TrendingUp, CheckCircle2 } from "lucide-react";
 import { getAdminStatsAction } from "@/lib/actions/admin";
 import { DemographicDistributionCard } from "@/features/administration";
 import { Button } from "@/components/ui/button";
@@ -33,11 +33,11 @@ export default async function AdminAnalyticsPage() {
       {/* Cartes d'indicateurs de performance clés */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="p-5 rounded-2xl bg-white border border-border shadow-xs space-y-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase">Taux de rétention</span>
-          <p className="text-3xl font-extrabold text-foreground">91.4%</p>
+          <span className="text-xs font-medium text-muted-foreground uppercase">Parcours actifs</span>
+          <p className="text-3xl font-extrabold text-foreground">{stats.activePrograms}</p>
           <p className="text-xs text-secondary font-semibold flex items-center gap-1">
             <TrendingUp className="h-3.5 w-3.5" />
-            +4.2% par rapport au trimestre précédent
+            {stats.totalUsers} utilisateur(s) inscrit(s)
           </p>
         </div>
 
@@ -46,15 +46,19 @@ export default async function AdminAnalyticsPage() {
           <p className="text-3xl font-extrabold text-foreground">{stats.completedSessions}</p>
           <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            94% d&apos;assiduité globale observée
+            Sessions validées comme terminées en base
           </p>
         </div>
 
         <div className="p-5 rounded-2xl bg-white border border-border shadow-xs space-y-2">
           <span className="text-xs font-medium text-muted-foreground uppercase">Score de satisfaction</span>
-          <p className="text-3xl font-extrabold text-foreground">{stats.satisfactionRate}%</p>
+          <p className="text-3xl font-extrabold text-foreground">
+            {stats.satisfactionRate > 0 ? `${stats.satisfactionRate}%` : "—"}
+          </p>
           <p className="text-xs text-muted-foreground">
-            Évaluations certifiées post-parcours
+            {stats.satisfactionRate > 0
+              ? "Moyenne réelle des évaluations de sessions"
+              : "Aucune évaluation enregistrée"}
           </p>
         </div>
       </div>

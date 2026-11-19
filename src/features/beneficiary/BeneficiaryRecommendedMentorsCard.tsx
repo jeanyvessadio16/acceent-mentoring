@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, Briefcase, Award, ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { Users, ArrowRight } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
 import type { BeneficiaryDashboardData } from "@/types";
 

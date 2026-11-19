@@ -7,12 +7,13 @@ import {
   XCircle,
   Clock,
   Briefcase,
-  Award,
   Loader2,
   ExternalLink,
   ChevronRight,
   ShieldCheck,
+  FileText,
 } from "lucide-react";
+import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 import type { PendingValidationItem } from "@/types";
 import { updateUserStatusAction } from "@/lib/actions/admin";
 import { Button } from "@/components/ui/button";
@@ -100,11 +101,10 @@ export function PendingValidationsTable({
       {feedback && (
         <div
           role="alert"
-          className={`mx-5 my-3 p-3 rounded-xl text-xs flex items-center justify-between ${
-            feedback.type === "success"
-              ? "bg-success/10 text-success border border-success/20"
-              : "bg-destructive/10 text-destructive border border-destructive/20"
-          }`}
+          className={`mx-5 my-3 p-3 rounded-xl text-xs flex items-center justify-between ${feedback.type === "success"
+            ? "bg-success/10 text-success border border-success/20"
+            : "bg-destructive/10 text-destructive border border-destructive/20"
+            }`}
         >
           <span>{feedback.message}</span>
           <button
@@ -147,11 +147,10 @@ export function PendingValidationsTable({
                       {item.firstName} {item.lastName}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider ${
-                        item.role === "mentor"
-                          ? "bg-primary/10 text-primary border border-primary/20"
-                          : "bg-purple-100 text-purple-700 border border-purple-200"
-                      }`}
+                      className={`px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider ${item.role === "mentor"
+                        ? "bg-primary/10 text-primary border border-primary/20"
+                        : "bg-purple-100 text-purple-700 border border-purple-200"
+                        }`}
                     >
                       {item.role === "mentor" ? "Mentor" : "Expert"}
                     </span>
@@ -163,11 +162,28 @@ export function PendingValidationsTable({
                     <span>
                       {item.title} {item.organization ? `· ${item.organization}` : ""}{" "}
                       <span className="text-muted-foreground">({item.yearsOfExperience} ans d&apos;exp.)</span>
+                      {item.mentoringFormat ? (
+                        <span className="text-muted-foreground"> · Format : {item.mentoringFormat}</span>
+                      ) : null}
                     </span>
                   </p>
 
-                  {/* Badges d'expertises */}
+                  {item.bio && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                      {item.bio}
+                    </p>
+                  )}
+
+                  {/* Badges d'expertises, secteurs et pièces du dossier */}
                   <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    {item.sectors?.map((sec, idx) => (
+                      <span
+                        key={`sec-${idx}`}
+                        className="px-2 py-0.5 rounded-md text-[11px] bg-secondary/10 text-secondary font-medium"
+                      >
+                        {sec}
+                      </span>
+                    ))}
                     {item.expertises.map((exp, idx) => (
                       <span
                         key={idx}
@@ -181,6 +197,38 @@ export function PendingValidationsTable({
                       {item.submittedAt}
                     </span>
                   </div>
+
+                  {(() => {
+                    const safeCvUrl = sanitizeExternalUrl(item.cvUrl);
+                    const safeLinkedinUrl = sanitizeExternalUrl(item.linkedinUrl);
+                    if (!safeCvUrl && !safeLinkedinUrl) return null;
+                    return (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {safeCvUrl && (
+                          <a
+                            href={safeCvUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+                          >
+                            <FileText className="h-3 w-3" />
+                            <span>Voir le CV (PDF)</span>
+                          </a>
+                        )}
+                        {safeLinkedinUrl && (
+                          <a
+                            href={safeLinkedinUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                          >
+                            <span>LinkedIn</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Boutons d'Action (Server Action directe) */}

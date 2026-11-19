@@ -1,20 +1,35 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+const SAFE_HOST_PATTERN = /^[a-zA-Z0-9.-]+(:\d+)?$/;
+
+function sanitizeRedirectPath(rawPath: string | null): string {
+  if (!rawPath) return "/";
+  const trimmed = rawPath.trim();
+  if (
+    !trimmed.startsWith("/") ||
+    trimmed.startsWith("//") ||
+    trimmed.includes("\\")
+  ) {
+    return "/";
+  }
+  return trimmed;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  const next = sanitizeRedirectPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      const forwardedHost = request.headers.get("x-forwarded-host");
+      const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
       const isLocalEnv = process.env.NODE_ENV === "development";
       if (isLocalEnv) {
         return NextResponse.redirect(`${origin}${next}`);
-      } else if (forwardedHost) {
+      } else if (forwardedHost && SAFE_HOST_PATTERN.test(forwardedHost)) {
         return NextResponse.redirect(`https://${forwardedHost}${next}`);
       } else {
         return NextResponse.redirect(`${origin}${next}`);

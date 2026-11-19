@@ -12,10 +12,7 @@ import {
   GraduationCap,
   Target,
   Calendar,
-  Layers,
-  Award,
   Loader2,
-  UserCheck,
 } from "lucide-react";
 import { submitDiagnosticAction } from "@/lib/actions/diagnostic";
 import { ROUTES } from "@/lib/constants";
@@ -81,18 +78,18 @@ export function DiagnosticWizard() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
 
-  // Données du formulaire
+  // Données du formulaire (vierges par défaut, aucune donnée fictive pré-remplie)
   const [formData, setFormData] = useState({
-    situation: "ETUDIANT",
-    niveau: "INTERMEDIAIRE",
-    domaine: "NUMERIQUE",
-    secteur: "Développement Logiciel & Solutions Numériques",
+    situation: "",
+    niveau: "",
+    domaine: "",
+    secteur: "",
     objectifPrincipal: "",
-    competences: ["Développement Web & Mobile", "Gestion de projet"],
-    besoins: ["Conseil stratégique", "Mise en réseau professionnelle"],
-    typeAccompagnement: "INDIVIDUEL",
-    disponibilite: "SOIR_ET_WEEKEND",
-    preferenceMentoring: "VIRTUEL",
+    competences: [] as string[],
+    besoins: [] as string[],
+    typeAccompagnement: "",
+    disponibilite: "",
+    preferenceMentoring: "",
   });
 
   const [customSkill, setCustomSkill] = useState("");
@@ -125,10 +122,46 @@ export function DiagnosticWizard() {
     }));
   };
 
+  const goToStep2 = () => {
+    if (!formData.situation || !formData.niveau) {
+      setErrorMessage("Veuillez sélectionner votre situation actuelle et votre niveau d'expérience.");
+      return;
+    }
+    setErrorMessage(null);
+    setStep(2);
+  };
+
+  const goToStep3 = () => {
+    if (!formData.domaine || !formData.secteur.trim()) {
+      setErrorMessage("Veuillez sélectionner un domaine et préciser votre secteur ou métier.");
+      return;
+    }
+    setErrorMessage(null);
+    setStep(3);
+  };
+
+  const goToStep4 = () => {
+    if (!formData.objectifPrincipal.trim()) {
+      setErrorMessage("Veuillez préciser votre objectif prioritaire.");
+      return;
+    }
+    if (formData.competences.length === 0 && formData.besoins.length === 0) {
+      setErrorMessage("Veuillez sélectionner au moins une compétence cible ou un besoin prioritaire.");
+      return;
+    }
+    setErrorMessage(null);
+    setStep(4);
+  };
+
   const handleSubmit = async () => {
     if (!formData.objectifPrincipal.trim()) {
       setErrorMessage("Veuillez préciser votre objectif principal.");
       setStep(3);
+      return;
+    }
+
+    if (!formData.typeAccompagnement || !formData.disponibilite || !formData.preferenceMentoring) {
+      setErrorMessage("Veuillez choisir votre format d'accompagnement, votre disponibilité et votre canal préféré.");
       return;
     }
 
@@ -149,8 +182,10 @@ export function DiagnosticWizard() {
         setRecommendations(res.data.topRecommendations);
       }
       setStep(5);
-    } catch (err: any) {
-      setErrorMessage(err.message || "Erreur de connexion.");
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Erreur de connexion."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -243,7 +278,7 @@ export function DiagnosticWizard() {
           <div className="flex justify-end pt-4">
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={goToStep2}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-secondary text-white text-xs font-semibold hover:bg-secondary/90 transition-colors"
             >
               <span>Continuer</span>
@@ -293,7 +328,7 @@ export function DiagnosticWizard() {
               type="text"
               value={formData.secteur}
               onChange={(e) => setFormData({ ...formData, secteur: e.target.value })}
-              placeholder="Ex : Intelligence Artificielle, EdTech, E-commerce, Énergie solaire..."
+              placeholder="Précisez votre secteur ou métier"
               className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-secondary/40"
             />
           </div>
@@ -301,7 +336,10 @@ export function DiagnosticWizard() {
           <div className="flex justify-between pt-4">
             <button
               type="button"
-              onClick={() => setStep(1)}
+              onClick={() => {
+                setErrorMessage(null);
+                setStep(1);
+              }}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -309,7 +347,7 @@ export function DiagnosticWizard() {
             </button>
             <button
               type="button"
-              onClick={() => setStep(3)}
+              onClick={goToStep3}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-secondary text-white text-xs font-semibold hover:bg-secondary/90 transition-colors"
             >
               <span>Continuer</span>
@@ -340,7 +378,7 @@ export function DiagnosticWizard() {
               rows={3}
               value={formData.objectifPrincipal}
               onChange={(e) => setFormData({ ...formData, objectifPrincipal: e.target.value })}
-              placeholder="Ex : Lancer mon MVP d'application web et décrocher mes 5 premiers clients professionnels..."
+              placeholder="Décrivez votre objectif principal..."
               className="w-full p-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-secondary/40"
             />
           </div>
@@ -411,7 +449,10 @@ export function DiagnosticWizard() {
           <div className="flex justify-between pt-4">
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={() => {
+                setErrorMessage(null);
+                setStep(2);
+              }}
               className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -419,7 +460,7 @@ export function DiagnosticWizard() {
             </button>
             <button
               type="button"
-              onClick={() => setStep(4)}
+              onClick={goToStep4}
               className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-secondary text-white text-xs font-semibold hover:bg-secondary/90 transition-colors"
             >
               <span>Continuer</span>

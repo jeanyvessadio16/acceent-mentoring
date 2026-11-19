@@ -3,8 +3,6 @@ import {
   Calendar,
   Compass,
   Award,
-  CheckCircle2,
-  TrendingUp,
 } from "lucide-react";
 import type { BeneficiaryDashboardData } from "@/types";
 

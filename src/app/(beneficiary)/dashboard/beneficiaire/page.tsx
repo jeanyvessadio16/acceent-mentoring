@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight, BookOpen, Briefcase } from "lucide-react";
 import { getBeneficiaryDashboardAction } from "@/lib/actions/beneficiary";
 import {
@@ -17,31 +18,11 @@ export const metadata: Metadata = {
 };
 
 export default async function BeneficiaireDashboardPage() {
-  const data = await getBeneficiaryDashboardAction();
+  const dashboardData = await getBeneficiaryDashboardAction();
 
-  // Données par défaut sécurisées si non connecté ou en cours d'initialisation
-  const fallbackData = {
-    user: {
-      id: "guest",
-      email: "",
-      prenom: "Bénéficiaire",
-      nom: "",
-      role: "BENEFICIAIRE",
-      statutCompte: "ACTIVE",
-      situationHandicap: false,
-    },
-    hasCompletedDiagnosis: false,
-    diagnostic: null,
-    activeProgramsCount: 0,
-    upcomingSessionsCount: 0,
-    completedSessionsCount: 0,
-    averageProgress: 0,
-    activeProgram: null,
-    upcomingSessions: [],
-    recommendedMentors: [],
-  };
-
-  const dashboardData = data || fallbackData;
+  if (!dashboardData) {
+    redirect(ROUTES.AUTH.LOGIN);
+  }
 
   return (
     <div className="space-y-6">

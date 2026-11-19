@@ -4,16 +4,11 @@ import { useState, useTransition, useMemo } from "react";
 import {
   Users,
   Search,
-  Filter,
   Mail,
   Phone,
   MapPin,
   Calendar,
-  Shield,
-  ShieldCheck,
-  ShieldAlert,
   CheckCircle2,
-  XCircle,
   AlertTriangle,
   Download,
   Eye,
@@ -614,7 +609,7 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
                       <td className="px-4 py-3.5 text-muted-foreground">
                         <span className="flex items-center gap-1 font-medium text-foreground">
                           <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
-                          {user.pays || "Sénégal"}
+                          {user.pays || "Non renseigné"}
                         </span>
                         {user.milieuResidence && (
                           <span className="text-[11px] text-slate-500 block">

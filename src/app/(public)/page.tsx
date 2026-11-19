@@ -145,7 +145,7 @@ function HeroSection() {
             <p className="text-lg text-white/80 leading-relaxed mb-10">
               ACCEENT connecte jeunes, femmes, professionnels et entrepreneurs avec des
               mentors experts, des masterclasses et des opportunités pour réussir en Afrique
-              et à l'international.
+              et à l&apos;international.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -211,10 +211,10 @@ function PillarsSection() {
             id="pillars-heading"
             className="text-3xl sm:text-4xl font-extrabold text-primary mb-4"
           >
-            Un écosystème complet d'accompagnement
+            Un écosystème complet d&apos;accompagnement
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Bien plus qu'un annuaire de mentors — une plateforme intégrée autour de votre
+            Bien plus qu&apos;un annuaire de mentors — une plateforme intégrée autour de votre
             réussite professionnelle et entrepreneuriale.
           </p>
         </div>
@@ -372,7 +372,7 @@ function FeaturesHighlight() {
               id="features-heading"
               className="text-3xl sm:text-4xl font-extrabold mb-4 leading-tight"
             >
-              Tout ce qu'il vous faut pour{" "}
+              Tout ce qu&apos;il vous faut pour{" "}
               <span className="text-secondary">réussir votre accompagnement</span>
             </h2>
             <p className="text-white/75 text-lg leading-relaxed mb-8">
@@ -426,7 +426,7 @@ function CtaSection() {
         </h2>
         <p className="text-muted-foreground text-lg leading-relaxed mb-8 max-w-xl mx-auto">
           Rejoignez des milliers de bénéficiaires et de mentors qui bâtissent ensemble
-          l'Afrique de demain.
+          l&apos;Afrique de demain.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link

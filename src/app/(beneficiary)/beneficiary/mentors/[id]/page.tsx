@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { getMentorDetailByIdAction } from "@/lib/actions/beneficiary";
 import { ROUTES } from "@/lib/constants";
+import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 
 export const metadata: Metadata = {
   title: "Profil Mentor | Espace Bénéficiaire ACCEENT Mentoring",
@@ -51,9 +52,17 @@ export default async function BeneficiaryMentorDetailPage({
         {/* En-tête du mentor */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-primary text-white font-bold text-xl flex items-center justify-center shrink-0">
-              {initials}
-            </div>
+            {mentorRecord.photoUrl ? (
+              <img
+                src={mentorRecord.photoUrl}
+                alt={fullName}
+                className="w-16 h-16 rounded-2xl object-cover border border-border shrink-0"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-2xl bg-primary text-white font-bold text-xl flex items-center justify-center shrink-0">
+                {initials}
+              </div>
+            )}
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold text-foreground">{fullName}</h1>
@@ -85,17 +94,21 @@ export default async function BeneficiaryMentorDetailPage({
             </div>
           </div>
 
-          {mentorRecord.linkedinUrl && (
-            <a
-              href={mentorRecord.linkedinUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border border-border text-foreground hover:bg-slate-50 transition-colors shrink-0"
-            >
-              <span>Profil LinkedIn</span>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          )}
+          {(() => {
+            const safeLinkedinUrl = sanitizeExternalUrl(mentorRecord.linkedinUrl);
+            if (!safeLinkedinUrl) return null;
+            return (
+              <a
+                href={safeLinkedinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold border border-border text-foreground hover:bg-slate-50 transition-colors shrink-0"
+              >
+                <span>Profil LinkedIn</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            );
+          })()}
         </div>
 
         {/* Biographie */}
@@ -160,7 +173,7 @@ export default async function BeneficiaryMentorDetailPage({
               <p className="text-xs text-muted-foreground mt-0.5">
                 {mentorRecord.langues?.length > 0
                   ? mentorRecord.langues.join(", ")
-                  : "Français"}
+                  : "Non renseigné"}
               </p>
             </div>
           </div>

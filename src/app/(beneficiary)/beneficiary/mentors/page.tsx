@@ -57,9 +57,17 @@ export default async function BeneficiaryMentorsCatalogPage() {
               >
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-primary text-white font-bold text-sm flex items-center justify-center shrink-0">
-                      {initials}
-                    </div>
+                    {mentor.photoUrl ? (
+                      <img
+                        src={mentor.photoUrl}
+                        alt={`${mentor.prenom} ${mentor.nom}`}
+                        className="w-12 h-12 rounded-2xl object-cover border border-border shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-2xl bg-primary text-white font-bold text-sm flex items-center justify-center shrink-0">
+                        {initials}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <h2 className="text-sm font-bold text-foreground truncate">

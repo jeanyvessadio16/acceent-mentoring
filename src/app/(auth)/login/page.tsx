@@ -1,5 +1,5 @@
+import { Suspense } from "react";
 import Link from "next/link";
-import { LogIn } from "lucide-react";
 
 import { ROUTES } from "@/lib/constants";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -25,7 +25,15 @@ export default function LoginPage() {
       </CardHeader>
 
       <CardContent>
-        <LoginForm />
+        <Suspense
+          fallback={
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              Chargement du formulaire...
+            </div>
+          }
+        >
+          <LoginForm />
+        </Suspense>
       </CardContent>
 
       <CardFooter className="flex flex-col text-center text-sm text-muted-foreground">

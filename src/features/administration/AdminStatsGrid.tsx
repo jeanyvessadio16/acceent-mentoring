@@ -5,7 +5,6 @@ import {
   Award,
   TrendingUp,
   AlertCircle,
-  CheckCircle2,
 } from "lucide-react";
 import type { AdminDashboardStats } from "@/types";
 
@@ -20,7 +19,7 @@ export function AdminStatsGrid({ stats }: AdminStatsGridProps) {
       value: stats.totalUsers.toLocaleString("fr-FR"),
       subtitle: `${stats.totalBeneficiaries} bénéficiaires · ${stats.totalMentors} mentors`,
       icon: Users,
-      trend: "+18% ce mois",
+      trend: `${stats.totalPartners} partenaire(s)`,
       trendUp: true,
       color: "text-primary",
       bgLight: "bg-primary/10",
@@ -43,8 +42,8 @@ export function AdminStatsGrid({ stats }: AdminStatsGridProps) {
       value: stats.activePrograms.toString(),
       subtitle: "Binômes mentor / mentoré en suivi",
       icon: Compass,
-      trend: "+12 nouveaux binômes",
-      trendUp: true,
+      trend: stats.activePrograms > 0 ? "En cours" : "Aucun actif",
+      trendUp: stats.activePrograms > 0,
       color: "text-secondary",
       bgLight: "bg-secondary/10",
       borderColor: "border-secondary/20",
@@ -52,10 +51,13 @@ export function AdminStatsGrid({ stats }: AdminStatsGridProps) {
     {
       title: "Sessions Réalisées",
       value: stats.completedSessions.toString(),
-      subtitle: `${stats.satisfactionRate}% de satisfaction moyenne`,
+      subtitle:
+        stats.satisfactionRate > 0
+          ? `${stats.satisfactionRate}% de satisfaction moyenne`
+          : "Aucune évaluation enregistrée",
       icon: Award,
-      trend: "Taux d'assiduité 94%",
-      trendUp: true,
+      trend: stats.completedSessions > 0 ? "Sessions terminées" : "Aucune session",
+      trendUp: stats.completedSessions > 0,
       color: "text-emerald-600",
       bgLight: "bg-emerald-50",
       borderColor: "border-emerald-200",

@@ -4,8 +4,15 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
-import { profileUpdateSchema, type ProfileUpdateFormData } from "@/lib/schemas/profile";
+import { profileUpdateSchema } from "@/lib/schemas/profile";
 import { calculateProfileCompletion } from "@/lib/utils/profile-completion";
+import { isNextInternalError } from "@/lib/utils/next-errors";
+import {
+  PROFILE_AVATAR_BUCKET,
+  validateProfilePhotoBuffer,
+  buildAvatarStoragePath,
+  extractOwnedAvatarStoragePath,
+} from "@/lib/utils/avatar-upload";
 
 export interface UserFullProfile {
   id: string;
@@ -58,6 +65,55 @@ export interface UserFullProfile {
   missingFields: string[];
 }
 
+interface DbUserProfileRow {
+  id: string;
+  photoUrl: string | null;
+  ville: string | null;
+  localisation: string | null;
+  niveauEtude: string | null;
+  secteurActivite: string | null;
+  anneesExperience: number | null;
+  competences: string[] | null;
+  centresInteret: string[] | null;
+  objectifs: string[] | null;
+  langues: string[] | null;
+  disponibilite: string | null;
+  isPublic: boolean | null;
+}
+
+interface DbMentorProfileRow {
+  id: string;
+  fonction: string | null;
+  organisation: string | null;
+  anneesExperience: number | null;
+  expertises: string[] | null;
+  secteurs: string[] | null;
+  biographie: string | null;
+  typesMentoring: string | null;
+  linkedinUrl: string | null;
+  statutValidation: string | null;
+}
+
+interface DbProfileUserRow {
+  id: string;
+  supabaseUid: string | null;
+  email: string;
+  nom: string | null;
+  prenom: string | null;
+  telephone: string | null;
+  pays: string | null;
+  role: string | null;
+  statutCompte: string | null;
+  age: number | null;
+  sexe: string | null;
+  milieuResidence: string | null;
+  situationHandicap: boolean | null;
+  langue: string | null;
+  createdAt: string;
+  UserProfile?: DbUserProfileRow | DbUserProfileRow[] | null;
+  MentorProfile?: DbMentorProfileRow | DbMentorProfileRow[] | null;
+}
+
 /**
  * Server Action : Récupère le profil complet de l'utilisateur connecté
  */
@@ -76,28 +132,43 @@ export async function getCurrentUserProfile(): Promise<UserFullProfile | null> {
     const adminDb = createAdminClient();
 
     // 1. Récupération dans la table User avec relations UserProfile et MentorProfile
-    const { data: dbUser, error: userError } = await findDbUserByAuth(
-      adminDb,
-      authUser,
-      `
+    const { data: dbUser, error: userError } =
+      await findDbUserByAuth<DbProfileUserRow>(
+        adminDb,
+        authUser,
+        `
         id, supabaseUid, email, nom, prenom, telephone, pays, role, statutCompte,
         age, sexe, milieuResidence, situationHandicap, langue, createdAt,
-        UserProfile (*),
-        MentorProfile (*)
+        UserProfile (id, photoUrl, ville, localisation, niveauEtude, secteurActivite, anneesExperience, competences, centresInteret, objectifs, langues, disponibilite, isPublic),
+        MentorProfile (id, fonction, organisation, anneesExperience, expertises, secteurs, biographie, typesMentoring, linkedinUrl, statutValidation)
       `
-    );
+      );
 
     if (userError) {
       console.error("Erreur lors de la lecture du profil utilisateur :", userError.message);
     }
 
     // Si l'utilisateur n'est pas encore dans la table User, l'insérer immédiatement
-    let userRecord = dbUser;
+    let userRecord: DbProfileUserRow | null = dbUser;
     if (!userRecord) {
+      const ALLOWED_AUTO_PROVISION_ROLES = new Set([
+        "BENEFICIAIRE",
+        "MENTOR",
+        "EXPERT",
+        "PARTENAIRE",
+      ]);
       const meta = authUser.user_metadata || {};
       const newUserId = crypto.randomUUID();
       const rawRole = (meta.role || meta.account_type || "BENEFICIAIRE").toUpperCase();
-      const role = rawRole === "BENEFICIARY" ? "BENEFICIAIRE" : rawRole;
+      const mappedRole =
+        rawRole === "BENEFICIARY"
+          ? "BENEFICIAIRE"
+          : rawRole === "PARTNER"
+          ? "PARTENAIRE"
+          : rawRole;
+      const role = ALLOWED_AUTO_PROVISION_ROLES.has(mappedRole)
+        ? mappedRole
+        : "BENEFICIAIRE";
       const sexe = meta.sexe === "Femme" ? "FEMME" : meta.sexe === "Homme" ? "HOMME" : null;
       const milieu = meta.milieu_residence === "Rural" ? "RURAL" : meta.milieu_residence === "Urbain" ? "URBAIN" : null;
 
@@ -107,10 +178,10 @@ export async function getCurrentUserProfile(): Promise<UserFullProfile | null> {
           id: newUserId,
           supabaseUid: authUser.id,
           email: authUser.email!,
-          nom: meta.last_name || meta.nom || "Utilisateur",
+          nom: meta.last_name || meta.nom || "",
           prenom: meta.first_name || meta.prenom || "",
           telephone: meta.phone || null,
-          pays: meta.country || "Sénégal",
+          pays: meta.country || "",
           role,
           statutCompte: role === "BENEFICIAIRE" ? "ACTIVE" : "PENDING",
           age: typeof meta.age === "number" ? meta.age : null,
@@ -124,7 +195,7 @@ export async function getCurrentUserProfile(): Promise<UserFullProfile | null> {
         .select()
         .single();
 
-      userRecord = createdUser;
+      userRecord = createdUser as DbProfileUserRow | null;
     }
 
     if (!userRecord) {
@@ -163,12 +234,13 @@ export async function getCurrentUserProfile(): Promise<UserFullProfile | null> {
       prenom: userRecord.prenom || "",
       nom: userRecord.nom || "",
       telephone: userRecord.telephone || null,
-      pays: userRecord.pays || "Sénégal",
+      pays: userRecord.pays || "",
       role: userRecord.role || "BENEFICIAIRE",
       statutCompte: userRecord.statutCompte || "ACTIVE",
       age: userRecord.age ?? null,
-      sexe: userRecord.sexe || null,
-      milieuResidence: userRecord.milieuResidence || null,
+      sexe: (userRecord.sexe as "HOMME" | "FEMME" | null) || null,
+      milieuResidence:
+        (userRecord.milieuResidence as "RURAL" | "URBAIN" | null) || null,
       situationHandicap: Boolean(userRecord.situationHandicap),
       langue: userRecord.langue || "fr",
       createdAt: userRecord.createdAt,
@@ -183,7 +255,7 @@ export async function getCurrentUserProfile(): Promise<UserFullProfile | null> {
       competences: rawProfile?.competences || [],
       centresInteret: rawProfile?.centresInteret || [],
       objectifs: rawProfile?.objectifs || [],
-      langues: rawProfile?.langues && rawProfile.langues.length > 0 ? rawProfile.langues : ["Français"],
+      langues: rawProfile?.langues || [],
       disponibilite: rawProfile?.disponibilite || null,
       isPublic: rawProfile?.isPublic ?? true,
 
@@ -205,11 +277,8 @@ export async function getCurrentUserProfile(): Promise<UserFullProfile | null> {
       completionScore: score,
       missingFields: missing,
     };
-  } catch (error: any) {
-    if (
-      error?.digest === "HANGING_PROMISE_REJECTION" ||
-      (typeof error?.digest === "string" && error.digest.startsWith("NEXT_"))
-    ) {
+  } catch (error: unknown) {
+    if (isNextInternalError(error)) {
       throw error;
     }
     console.error("Erreur inattendue getCurrentUserProfile :", error);
@@ -223,6 +292,27 @@ export type ProfileActionResult = {
   completionScore?: number;
   errors?: Record<string, string[]>;
 };
+
+export type PhotoUploadResult = {
+  success: boolean;
+  message: string;
+  photoUrl?: string | null;
+};
+
+function revalidateAllProfilePaths() {
+  revalidatePath("/beneficiary/profile");
+  revalidatePath("/admin/profile");
+  revalidatePath("/mentor/profile");
+  revalidatePath("/expert/profile");
+  revalidatePath("/partenaire/profile");
+  revalidatePath("/profile");
+  revalidatePath("/dashboard/beneficiaire");
+  revalidatePath("/dashboard/mentor");
+  revalidatePath("/dashboard/expert");
+  revalidatePath("/dashboard/partenaire");
+  revalidatePath("/admin/users");
+  revalidatePath("/beneficiary/mentors");
+}
 
 /**
  * Server Action : Met à jour et complète le profil de l'utilisateur connecté
@@ -364,6 +454,7 @@ export async function updateUserFullProfileAction(
           organisation: data.organisation || "",
           anneesExperience: data.anneesExperience,
           biographie: data.biographie || "",
+          photoUrl: data.photoUrl || null,
           typesMentoring: data.typesMentoring || "INDIVIDUEL",
           linkedinUrl: data.linkedinUrl || null,
           updatedAt: now,
@@ -424,28 +515,269 @@ export async function updateUserFullProfileAction(
     });
 
     // 6. Revalidation des chemins de cache Next.js
-    revalidatePath("/beneficiary/profile");
-    revalidatePath("/admin/profile");
-    revalidatePath("/mentor/profile");
-    revalidatePath("/expert/profile");
-    revalidatePath("/partenaire/profile");
-    revalidatePath("/profile");
-    revalidatePath("/dashboard/beneficiaire");
-    revalidatePath("/dashboard/mentor");
-    revalidatePath("/dashboard/expert");
-    revalidatePath("/dashboard/partenaire");
-    revalidatePath("/admin/users");
+    revalidateAllProfilePaths();
 
     return {
       success: true,
       message: "Votre profil a été mis à jour et enregistré avec succès !",
       completionScore: score,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Erreur serveur updateUserFullProfileAction :", error);
     return {
       success: false,
       message: "Une erreur inattendue est survenue lors de l'enregistrement.",
+    };
+  }
+}
+
+/**
+ * Server Action : Téléverse une photo de profil vers le bucket Supabase Storage `plateforme-images`
+ * et met à jour `UserProfile.photoUrl` (et `MentorProfile.photoUrl` si applicable).
+ */
+export async function uploadProfilePhotoAction(
+  formData: FormData
+): Promise<PhotoUploadResult> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !authUser) {
+      return {
+        success: false,
+        message: "Vous devez être connecté pour téléverser une photo.",
+      };
+    }
+
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return {
+        success: false,
+        message: "Aucun fichier image sélectionné.",
+      };
+    }
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const validation = validateProfilePhotoBuffer(file.size, bytes);
+    if (!validation.valid) {
+      return {
+        success: false,
+        message: validation.error,
+      };
+    }
+
+    const adminDb = createAdminClient();
+    const { data: dbUser, error: findError } = await findDbUserByAuth<{
+      id: string;
+      role: string;
+      UserProfile: { id: string; photoUrl: string | null } | Array<{ id: string; photoUrl: string | null }> | null;
+      MentorProfile: { id: string } | Array<{ id: string }> | null;
+    }>(adminDb, authUser, "id, role, UserProfile(id, photoUrl), MentorProfile(id)");
+
+    if (findError || !dbUser) {
+      return {
+        success: false,
+        message: "Impossible de localiser votre compte utilisateur.",
+      };
+    }
+
+    const storagePath = buildAvatarStoragePath(dbUser.id, validation.ext);
+    const { error: uploadError } = await adminDb.storage
+      .from(PROFILE_AVATAR_BUCKET)
+      .upload(storagePath, Buffer.from(bytes), {
+        contentType: validation.mimeType,
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error("Erreur uploadProfilePhotoAction storage :", uploadError.message);
+      return {
+        success: false,
+        message: "Échec du téléversement de l'image. Veuillez réessayer.",
+      };
+    }
+
+    const {
+      data: { publicUrl },
+    } = adminDb.storage.from(PROFILE_AVATAR_BUCKET).getPublicUrl(storagePath);
+
+    const existingProfile = Array.isArray(dbUser.UserProfile)
+      ? dbUser.UserProfile[0]
+      : dbUser.UserProfile;
+    const existingMentor = Array.isArray(dbUser.MentorProfile)
+      ? dbUser.MentorProfile[0]
+      : dbUser.MentorProfile;
+
+    const now = new Date().toISOString();
+    let dbError: { message: string } | null = null;
+
+    if (existingProfile?.id) {
+      const { error } = await adminDb
+        .from("UserProfile")
+        .update({
+          photoUrl: publicUrl,
+          updatedAt: now,
+        })
+        .eq("id", existingProfile.id);
+      dbError = error;
+    } else {
+      const { error } = await adminDb.from("UserProfile").insert({
+        id: crypto.randomUUID(),
+        userId: dbUser.id,
+        photoUrl: publicUrl,
+        anneesExperience: 0,
+        competences: [],
+        centresInteret: [],
+        objectifs: [],
+        langues: [],
+        isPublic: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      dbError = error;
+    }
+
+    if (dbError) {
+      console.error("Erreur sauvegarde UserProfile.photoUrl :", dbError.message);
+      // Rollback best-effort du fichier fraîchement téléversé
+      await adminDb.storage.from(PROFILE_AVATAR_BUCKET).remove([storagePath]);
+      return {
+        success: false,
+        message: "Impossible d'enregistrer la photo dans votre profil.",
+      };
+    }
+
+    if (existingMentor?.id) {
+      await adminDb
+        .from("MentorProfile")
+        .update({
+          photoUrl: publicUrl,
+          updatedAt: now,
+        })
+        .eq("id", existingMentor.id);
+    }
+
+    // Nettoyage best-effort de l'ancienne photo dans le dossier utilisateur
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const oldPath = extractOwnedAvatarStoragePath(
+      existingProfile?.photoUrl,
+      supabaseUrl,
+      dbUser.id
+    );
+    if (oldPath && oldPath !== storagePath) {
+      await adminDb.storage.from(PROFILE_AVATAR_BUCKET).remove([oldPath]);
+    }
+
+    revalidateAllProfilePaths();
+
+    return {
+      success: true,
+      photoUrl: publicUrl,
+      message: "Photo de profil mise à jour avec succès !",
+    };
+  } catch (error) {
+    console.error("Erreur serveur uploadProfilePhotoAction :", error);
+    return {
+      success: false,
+      message: "Une erreur inattendue est survenue lors du téléversement.",
+    };
+  }
+}
+
+/**
+ * Server Action : Supprime la photo de profil actuelle de l'utilisateur connecté
+ */
+export async function deleteProfilePhotoAction(): Promise<PhotoUploadResult> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user: authUser },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !authUser) {
+      return {
+        success: false,
+        message: "Vous devez être connecté pour supprimer votre photo.",
+      };
+    }
+
+    const adminDb = createAdminClient();
+    const { data: dbUser, error: findError } = await findDbUserByAuth<{
+      id: string;
+      UserProfile: { id: string; photoUrl: string | null } | Array<{ id: string; photoUrl: string | null }> | null;
+      MentorProfile: { id: string } | Array<{ id: string }> | null;
+    }>(adminDb, authUser, "id, UserProfile(id, photoUrl), MentorProfile(id)");
+
+    if (findError || !dbUser) {
+      return {
+        success: false,
+        message: "Impossible de localiser votre compte utilisateur.",
+      };
+    }
+
+    const existingProfile = Array.isArray(dbUser.UserProfile)
+      ? dbUser.UserProfile[0]
+      : dbUser.UserProfile;
+    const existingMentor = Array.isArray(dbUser.MentorProfile)
+      ? dbUser.MentorProfile[0]
+      : dbUser.MentorProfile;
+
+    const now = new Date().toISOString();
+
+    if (existingProfile?.id) {
+      const { error } = await adminDb
+        .from("UserProfile")
+        .update({
+          photoUrl: null,
+          updatedAt: now,
+        })
+        .eq("id", existingProfile.id);
+
+      if (error) {
+        return {
+          success: false,
+          message: "Impossible de supprimer la photo de votre profil.",
+        };
+      }
+    }
+
+    if (existingMentor?.id) {
+      await adminDb
+        .from("MentorProfile")
+        .update({
+          photoUrl: null,
+          updatedAt: now,
+        })
+        .eq("id", existingMentor.id);
+    }
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const oldPath = extractOwnedAvatarStoragePath(
+      existingProfile?.photoUrl,
+      supabaseUrl,
+      dbUser.id
+    );
+    if (oldPath) {
+      await adminDb.storage.from(PROFILE_AVATAR_BUCKET).remove([oldPath]);
+    }
+
+    revalidateAllProfilePaths();
+
+    return {
+      success: true,
+      photoUrl: null,
+      message: "Photo de profil supprimée.",
+    };
+  } catch (error) {
+    console.error("Erreur serveur deleteProfilePhotoAction :", error);
+    return {
+      success: false,
+      message: "Une erreur inattendue est survenue lors de la suppression.",
     };
   }
 }

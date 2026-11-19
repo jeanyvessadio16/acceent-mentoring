@@ -1,11 +1,9 @@
 import Link from "next/link";
 import {
   FileSpreadsheet,
-  PlusCircle,
   GraduationCap,
   Briefcase,
   UserPlus,
-  ShieldAlert,
 } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -12,15 +11,12 @@ import {
   GraduationCap,
   BarChart3,
   LogOut,
-  ShieldAlert,
   ChevronRight,
-  Settings,
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/lib/constants";
 import { signOutAction } from "@/lib/actions/auth";
-import { createClient } from "@/lib/supabase/client";
 import type { CurrentAdminUser } from "@/lib/actions/admin";
 
 interface AdminSidebarProps {
@@ -70,54 +66,33 @@ const ADMIN_NAV_ITEMS = [
 ];
 
 export function AdminSidebar({
-  pendingCount = 4,
+  pendingCount = 0,
   onNavigate,
   className,
-  currentUser: initialUser,
+  currentUser,
 }: AdminSidebarProps) {
   const pathname = usePathname();
-  const [user, setUser] = useState<CurrentAdminUser | null>(initialUser || null);
-
-  useEffect(() => {
-    if (initialUser) {
-      setUser(initialUser);
-      return;
-    }
-
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
-      if (authUser) {
-        const meta = authUser.user_metadata || {};
-        setUser({
-          id: authUser.id,
-          email: authUser.email || "",
-          nom: meta.last_name || meta.nom || "",
-          prenom: meta.first_name || meta.prenom || meta.full_name || "Admin",
-          role: meta.role || "ADMIN",
-        });
-      }
-    });
-  }, [initialUser]);
+  const user = currentUser || null;
 
   // Nom complet d'affichage
   const displayName = (() => {
-    if (!user) return "Superviseur";
+    if (!user) return "";
     const fullName = `${user.prenom || ""} ${user.nom || ""}`.trim();
-    return fullName || user.email?.split("@")[0] || "Administrateur";
+    return fullName || user.email || "";
   })();
 
-  const displayEmail = user?.email || "admin@acceent.sn";
+  const displayEmail = user?.email || "";
 
   // Initiales dynamiques
   const initials = (() => {
-    if (!user) return "AD";
+    if (!user) return "";
     const p = user.prenom?.trim();
     const n = user.nom?.trim();
     if (p && n) return `${p[0]}${n[0]}`.toUpperCase();
     if (p) return p.slice(0, 2).toUpperCase();
     if (n) return n.slice(0, 2).toUpperCase();
     if (user.email) return user.email.slice(0, 2).toUpperCase();
-    return "AD";
+    return "";
   })();
 
   return (
@@ -206,9 +181,17 @@ export function AdminSidebar({
           title="Consulter et modifier mon profil"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-secondary/30 text-secondary border border-secondary/40 flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
-              {initials}
-            </div>
+            {user?.photoUrl ? (
+              <img
+                src={user.photoUrl}
+                alt={displayName}
+                className="w-8 h-8 rounded-full object-cover shrink-0 border border-secondary/40 group-hover:scale-105 transition-transform"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-secondary/30 text-secondary border border-secondary/40 flex items-center justify-center font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                {initials}
+              </div>
+            )}
             <div className="truncate text-left">
               <p className="text-xs font-semibold text-white truncate" title={displayName}>
                 {displayName}

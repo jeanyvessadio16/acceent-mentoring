@@ -4,9 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Bell,
-  Search,
   Menu,
-  X,
   ShieldCheck,
   ExternalLink,
 } from "lucide-react";
@@ -19,7 +17,7 @@ interface AdminHeaderProps {
   currentUser?: CurrentAdminUser | null;
 }
 
-export function AdminHeader({ pendingCount = 4, currentUser }: AdminHeaderProps) {
+export function AdminHeader({ pendingCount = 0, currentUser }: AdminHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -78,9 +76,17 @@ export function AdminHeader({ pendingCount = 4, currentUser }: AdminHeaderProps)
             className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity"
             title="Accéder à mon profil administrateur"
           >
-            <div className="w-8 h-8 rounded-full bg-secondary text-white font-bold text-xs flex items-center justify-center shadow-xs">
-              {`${currentUser?.prenom?.[0] || "A"}${currentUser?.nom?.[0] || "D"}`.toUpperCase()}
-            </div>
+            {currentUser?.photoUrl ? (
+              <img
+                src={currentUser.photoUrl}
+                alt={`${currentUser.prenom || "Admin"} ${currentUser.nom || ""}`.trim()}
+                className="w-8 h-8 rounded-full object-cover shadow-xs border border-secondary/40"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-secondary text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                {`${currentUser?.prenom?.[0] || "A"}${currentUser?.nom?.[0] || "D"}`.toUpperCase()}
+              </div>
+            )}
             <span className="hidden md:inline-block text-xs font-semibold text-foreground">
               {currentUser?.prenom || "Admin"}
             </span>

@@ -2,7 +2,12 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAdminStatsAction } from "@/lib/actions/admin";
+import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
+import {
+  EMPTY_PLATFORM_STATS,
+  computeAggregatedPlatformStats,
+} from "@/lib/supabase/platform-stats";
+import { isNextInternalError } from "@/lib/utils/next-errors";
 import type { AdminDashboardStats } from "@/types";
 
 export interface WorkspaceUserSummary {
@@ -13,6 +18,7 @@ export interface WorkspaceUserSummary {
   nom: string;
   role: string;
   statutCompte: string;
+  photoUrl?: string | null;
 }
 
 export interface MentorRequestItem {
@@ -133,6 +139,48 @@ export interface PartnerWorkspaceData {
   stats: AdminDashboardStats;
 }
 
+interface MenteeRef {
+  id?: string;
+  nom: string;
+  prenom: string;
+  email?: string;
+}
+
+interface DbMentorRequestRow {
+  id: string;
+  objectif: string | null;
+  problematique: string | null;
+  duree: string | null;
+  frequence: string | null;
+  format: string | null;
+  message: string | null;
+  status: string | null;
+  createdAt: string;
+  mentee: MenteeRef | MenteeRef[] | null;
+}
+
+interface DbMentorProgramRow {
+  id: string;
+  titre: string | null;
+  description: string | null;
+  status: string | null;
+  progression: number | null;
+  startDate: string;
+  mentee: MenteeRef | MenteeRef[] | null;
+  goals: Array<{ id: string }> | null;
+  tasks: Array<{ id: string }> | null;
+}
+
+interface DbWorkspaceSessionRow {
+  id: string;
+  titre: string | null;
+  dateDebut: string;
+  dateFin: string;
+  meetingUrl: string | null;
+  status: string | null;
+  mentee: MenteeRef | MenteeRef[] | null;
+}
+
 async function getAuthenticatedDbUser(): Promise<WorkspaceUserSummary | null> {
   try {
     const supabase = await createClient();
@@ -146,13 +194,28 @@ async function getAuthenticatedDbUser(): Promise<WorkspaceUserSummary | null> {
     }
 
     const adminDb = createAdminClient();
-    const { data: dbUser } = await adminDb
-      .from("User")
-      .select("id, email, nom, prenom, role, statutCompte")
-      .or(`supabaseUid.eq.${authUser.id},email.eq.${authUser.email}`)
-      .maybeSingle();
+    const { data: dbUser } = await findDbUserByAuth<{
+      id: string;
+      email: string;
+      nom: string | null;
+      prenom: string | null;
+      role: string;
+      statutCompte: string;
+      UserProfile:
+        | { photoUrl: string | null }
+        | Array<{ photoUrl: string | null }>
+        | null;
+    }>(
+      adminDb,
+      authUser,
+      "id, email, nom, prenom, role, statutCompte, UserProfile(photoUrl)"
+    );
 
     if (dbUser) {
+      const userProfile = Array.isArray(dbUser.UserProfile)
+        ? dbUser.UserProfile[0]
+        : dbUser.UserProfile;
+
       return {
         id: dbUser.id,
         dbUserId: dbUser.id,
@@ -161,24 +224,13 @@ async function getAuthenticatedDbUser(): Promise<WorkspaceUserSummary | null> {
         nom: dbUser.nom || "",
         role: dbUser.role || "BENEFICIAIRE",
         statutCompte: dbUser.statutCompte || "ACTIVE",
+        photoUrl: userProfile?.photoUrl || null,
       };
     }
 
-    const meta = authUser.user_metadata || {};
-    return {
-      id: authUser.id,
-      dbUserId: null,
-      email: authUser.email || "",
-      prenom: meta.first_name || meta.prenom || meta.full_name || "Utilisateur",
-      nom: meta.last_name || meta.nom || "",
-      role: (meta.role || meta.account_type || "BENEFICIAIRE").toUpperCase(),
-      statutCompte: meta.status || meta.statutCompte || "PENDING",
-    };
-  } catch (err: any) {
-    if (err?.digest === "HANGING_PROMISE_REJECTION") {
-      return null;
-    }
-    if (typeof err?.digest === "string" && err.digest.startsWith("NEXT_")) {
+    return null;
+  } catch (err: unknown) {
+    if (isNextInternalError(err)) {
       throw err;
     }
     console.error("Erreur getAuthenticatedDbUser :", err);
@@ -191,7 +243,12 @@ async function getAuthenticatedDbUser(): Promise<WorkspaceUserSummary | null> {
  */
 export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceData | null> {
   const user = await getAuthenticatedDbUser();
-  if (!user) {
+  if (
+    !user ||
+    (user.role !== "MENTOR" && user.role !== "ADMIN") ||
+    user.statutCompte === "SUSPENDED" ||
+    user.statutCompte === "REJECTED"
+  ) {
     return null;
   }
 
@@ -214,54 +271,58 @@ export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceDat
     const adminDb = createAdminClient();
     const dbUserId = user.dbUserId;
 
-    const [
-      profileRes,
-      requestsRes,
-      programsRes,
-      sessionsRes,
-      slotsRes,
-    ] = await Promise.all([
-      adminDb
-        .from("MentorProfile")
-        .select(
-          "id, fonction, organisation, anneesExperience, expertises, statutValidation, isAvailable, typesMentoring"
-        )
-        .eq("userId", dbUserId)
-        .maybeSingle(),
-      adminDb
-        .from("MentorshipRequest")
-        .select(`
+    const [profileRes, requestsRes, programsRes, sessionsRes, slotsRes] =
+      await Promise.all([
+        adminDb
+          .from("MentorProfile")
+          .select(
+            "id, fonction, organisation, anneesExperience, expertises, statutValidation, isAvailable, typesMentoring"
+          )
+          .eq("userId", dbUserId)
+          .maybeSingle(),
+        adminDb
+          .from("MentorshipRequest")
+          .select(
+            `
           id, objectif, problematique, duree, frequence, format, message, status, createdAt,
           mentee:User!menteeId (id, nom, prenom, email)
-        `)
-        .eq("mentorId", dbUserId)
-        .order("createdAt", { ascending: false }),
-      adminDb
-        .from("MentorshipProgram")
-        .select(`
+        `
+          )
+          .eq("mentorId", dbUserId)
+          .order("createdAt", { ascending: false }),
+        adminDb
+          .from("MentorshipProgram")
+          .select(
+            `
           id, titre, description, status, progression, startDate,
           mentee:User!menteeId (id, nom, prenom, email),
           goals:MentorshipGoal (id),
           tasks:MentorshipTask (id)
-        `)
-        .eq("mentorId", dbUserId)
-        .order("createdAt", { ascending: false }),
-      adminDb
-        .from("MentorshipSession")
-        .select(`
+        `
+          )
+          .eq("mentorId", dbUserId)
+          .order("createdAt", { ascending: false }),
+        adminDb
+          .from("MentorshipSession")
+          .select(
+            `
           id, titre, dateDebut, dateFin, meetingUrl, status,
           mentee:User!menteeId (id, nom, prenom)
-        `)
-        .eq("mentorId", dbUserId)
-        .order("dateDebut", { ascending: true }),
-      adminDb
-        .from("AvailabilitySlot")
-        .select("id, dayOfWeek, startTime, endTime, specificDate, isRecurring, isActive")
-        .eq("mentorId", dbUserId)
-        .eq("isActive", true),
-    ]);
+        `
+          )
+          .eq("mentorId", dbUserId)
+          .order("dateDebut", { ascending: true }),
+        adminDb
+          .from("AvailabilitySlot")
+          .select(
+            "id, dayOfWeek, startTime, endTime, specificDate, isRecurring, isActive"
+          )
+          .eq("mentorId", dbUserId)
+          .eq("isActive", true),
+      ]);
 
-    const requests: MentorRequestItem[] = (requestsRes.data || []).map((r: any) => {
+    const typedRequests = (requestsRes.data || []) as unknown as DbMentorRequestRow[];
+    const requests: MentorRequestItem[] = typedRequests.map((r) => {
       const mentee = Array.isArray(r.mentee) ? r.mentee[0] : r.mentee;
       return {
         id: r.id,
@@ -273,14 +334,19 @@ export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceDat
         message: r.message || "",
         status: r.status || "PENDING",
         createdAt: r.createdAt,
-        menteeName: mentee ? `${mentee.prenom} ${mentee.nom}`.trim() : "Bénéficiaire",
+        menteeName: mentee
+          ? `${mentee.prenom} ${mentee.nom}`.trim()
+          : "Bénéficiaire",
         menteeEmail: mentee?.email || "",
       };
     });
 
-    const pendingRequestsCount = requests.filter((r) => r.status === "PENDING").length;
+    const pendingRequestsCount = requests.filter(
+      (r) => r.status === "PENDING"
+    ).length;
 
-    const programs: MentorProgramItem[] = (programsRes.data || []).map((p: any) => {
+    const typedPrograms = (programsRes.data || []) as unknown as DbMentorProgramRow[];
+    const programs: MentorProgramItem[] = typedPrograms.map((p) => {
       const mentee = Array.isArray(p.mentee) ? p.mentee[0] : p.mentee;
       return {
         id: p.id,
@@ -289,16 +355,21 @@ export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceDat
         status: p.status || "ACTIVE",
         progression: Math.round(p.progression || 0),
         startDate: p.startDate,
-        menteeName: mentee ? `${mentee.prenom} ${mentee.nom}`.trim() : "Bénéficiaire",
+        menteeName: mentee
+          ? `${mentee.prenom} ${mentee.nom}`.trim()
+          : "Bénéficiaire",
         menteeEmail: mentee?.email || "",
         goalsCount: Array.isArray(p.goals) ? p.goals.length : 0,
         tasksCount: Array.isArray(p.tasks) ? p.tasks.length : 0,
       };
     });
 
-    const activeProgramsCount = programs.filter((p) => p.status === "ACTIVE").length;
+    const activeProgramsCount = programs.filter(
+      (p) => p.status === "ACTIVE"
+    ).length;
 
-    const sessions: WorkspaceSessionItem[] = (sessionsRes.data || []).map((s: any) => {
+    const typedSessions = (sessionsRes.data || []) as unknown as DbWorkspaceSessionRow[];
+    const sessions: WorkspaceSessionItem[] = typedSessions.map((s) => {
       const mentee = Array.isArray(s.mentee) ? s.mentee[0] : s.mentee;
       return {
         id: s.id,
@@ -307,7 +378,9 @@ export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceDat
         dateFin: s.dateFin,
         meetingUrl: s.meetingUrl || null,
         status: s.status || "SCHEDULED",
-        menteeName: mentee ? `${mentee.prenom} ${mentee.nom}`.trim() : "Bénéficiaire",
+        menteeName: mentee
+          ? `${mentee.prenom} ${mentee.nom}`.trim()
+          : "Bénéficiaire",
       };
     });
 
@@ -343,6 +416,9 @@ export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceDat
       availabilitySlots: (slotsRes.data || []) as MentorAvailabilitySlotItem[],
     };
   } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur getMentorWorkspaceDataAction :", err);
     return {
       user,
@@ -364,12 +440,19 @@ export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceDat
  */
 export async function getExpertWorkspaceDataAction(): Promise<ExpertWorkspaceData | null> {
   const user = await getAuthenticatedDbUser();
-  if (!user) {
+  if (
+    !user ||
+    (user.role !== "EXPERT" && user.role !== "ADMIN") ||
+    user.statutCompte === "SUSPENDED" ||
+    user.statutCompte === "REJECTED"
+  ) {
     return null;
   }
 
   try {
     const adminDb = createAdminClient();
+    const canViewMasterclasses =
+      user.role === "ADMIN" || user.statutCompte === "ACTIVE";
 
     const [profileRes, masterclassesRes, sessionsRes] = await Promise.all([
       user.dbUserId
@@ -379,25 +462,30 @@ export async function getExpertWorkspaceDataAction(): Promise<ExpertWorkspaceDat
             .eq("userId", user.dbUserId)
             .maybeSingle()
         : Promise.resolve({ data: null }),
-      adminDb
-        .from("Masterclass")
-        .select(
-          "id, titre, intervenant, description, categorie, dateSession, duree, lienLive, lienReplay, statut, maxParticipants"
-        )
-        .order("dateSession", { ascending: true }),
+      canViewMasterclasses
+        ? adminDb
+            .from("Masterclass")
+            .select(
+              "id, titre, intervenant, description, categorie, dateSession, duree, lienLive, lienReplay, statut, maxParticipants"
+            )
+            .order("dateSession", { ascending: true })
+        : Promise.resolve({ data: [] }),
       user.dbUserId
         ? adminDb
             .from("MentorshipSession")
-            .select(`
+            .select(
+              `
               id, titre, dateDebut, dateFin, meetingUrl, status,
               mentee:User!menteeId (id, nom, prenom)
-            `)
+            `
+            )
             .eq("mentorId", user.dbUserId)
             .order("dateDebut", { ascending: true })
         : Promise.resolve({ data: [] }),
     ]);
 
-    const sessions: WorkspaceSessionItem[] = (sessionsRes.data || []).map((s: any) => {
+    const typedSessions = (sessionsRes.data || []) as unknown as DbWorkspaceSessionRow[];
+    const sessions: WorkspaceSessionItem[] = typedSessions.map((s) => {
       const mentee = Array.isArray(s.mentee) ? s.mentee[0] : s.mentee;
       return {
         id: s.id,
@@ -406,7 +494,9 @@ export async function getExpertWorkspaceDataAction(): Promise<ExpertWorkspaceDat
         dateFin: s.dateFin,
         meetingUrl: s.meetingUrl || null,
         status: s.status || "SCHEDULED",
-        menteeName: mentee ? `${mentee.prenom} ${mentee.nom}`.trim() : "Participant",
+        menteeName: mentee
+          ? `${mentee.prenom} ${mentee.nom}`.trim()
+          : "Participant",
       };
     });
 
@@ -434,6 +524,9 @@ export async function getExpertWorkspaceDataAction(): Promise<ExpertWorkspaceDat
       completedSessionsCount,
     };
   } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur getExpertWorkspaceDataAction :", err);
     return {
       user,
@@ -451,8 +544,22 @@ export async function getExpertWorkspaceDataAction(): Promise<ExpertWorkspaceDat
  */
 export async function getPartnerWorkspaceDataAction(): Promise<PartnerWorkspaceData | null> {
   const user = await getAuthenticatedDbUser();
-  if (!user) {
+  if (
+    !user ||
+    (user.role !== "PARTENAIRE" && user.role !== "ADMIN") ||
+    user.statutCompte === "SUSPENDED" ||
+    user.statutCompte === "REJECTED"
+  ) {
     return null;
+  }
+
+  if (user.role === "PARTENAIRE" && user.statutCompte !== "ACTIVE") {
+    return {
+      user,
+      opportunities: [],
+      activeOpportunitiesCount: 0,
+      stats: EMPTY_PLATFORM_STATS,
+    };
   }
 
   try {
@@ -464,7 +571,7 @@ export async function getPartnerWorkspaceDataAction(): Promise<PartnerWorkspaceD
           "id, titre, organisation, categorie, description, localisation, typeContrat, lienCandidature, dateExpiration, status, createdAt"
         )
         .order("createdAt", { ascending: false }),
-      getAdminStatsAction(),
+      computeAggregatedPlatformStats(),
     ]);
 
     const opportunities = (oppsRes.data || []) as PartnerOpportunityItem[];
@@ -479,8 +586,11 @@ export async function getPartnerWorkspaceDataAction(): Promise<PartnerWorkspaceD
       stats,
     };
   } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur getPartnerWorkspaceDataAction :", err);
-    const stats = await getAdminStatsAction();
+    const stats = await computeAggregatedPlatformStats();
     return {
       user,
       opportunities: [],

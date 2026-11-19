@@ -4,6 +4,13 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
+import {
+  EMPTY_PLATFORM_STATS,
+  computeAggregatedPlatformStats,
+} from "@/lib/supabase/platform-stats";
+import { isNextInternalError } from "@/lib/utils/next-errors";
+import { CV_STORAGE_BUCKET } from "@/lib/utils/cv-upload";
+import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 import type {
   AdminDashboardStats,
   PendingValidationItem,
@@ -16,17 +23,62 @@ export interface CurrentAdminUser {
   nom: string;
   prenom: string;
   role: string;
+  photoUrl?: string | null;
 }
 
-function isNextInternalError(err: unknown): boolean {
-  if (!err || typeof err !== "object" || !("digest" in err)) {
-    return false;
-  }
-  const digest = (err as { digest?: unknown }).digest;
-  return (
-    digest === "HANGING_PROMISE_REJECTION" ||
-    (typeof digest === "string" && digest.startsWith("NEXT_"))
-  );
+export interface RealOpportunityRow {
+  id: string;
+  titre: string;
+  organisation: string;
+  categorie: string;
+  description: string;
+  localisation: string | null;
+  typeContrat: string | null;
+  lienCandidature: string;
+  dateExpiration: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface RealMasterclassRow {
+  id: string;
+  titre: string;
+  intervenant: string;
+  description: string;
+  categorie: string;
+  dateSession: string;
+  duree: number;
+  lienLive: string | null;
+  lienReplay: string | null;
+  statut: string;
+  maxParticipants: number | null;
+  createdAt: string;
+}
+
+interface PendingMentorProfileRow {
+  id: string;
+  fonction: string | null;
+  organisation: string | null;
+  anneesExperience: number | null;
+  expertises: string[] | null;
+  secteurs: string[] | null;
+  biographie: string | null;
+  cvUrl: string | null;
+  linkedinUrl: string | null;
+  references: string | null;
+  typesMentoring: string | null;
+  disponibilites: string | null;
+  statutValidation: string | null;
+}
+
+interface PendingUserRow {
+  id: string;
+  email: string;
+  nom: string | null;
+  prenom: string | null;
+  role: string;
+  createdAt: string | null;
+  MentorProfile: PendingMentorProfileRow | PendingMentorProfileRow[] | null;
 }
 
 /**
@@ -52,7 +104,8 @@ async function requireAdmin(): Promise<CurrentAdminUser | null> {
       prenom: string | null;
       role: string;
       statutCompte: string;
-    }>(adminDb, authUser, "id, email, nom, prenom, role, statutCompte");
+      UserProfile: { photoUrl: string | null } | Array<{ photoUrl: string | null }> | null;
+    }>(adminDb, authUser, "id, email, nom, prenom, role, statutCompte, UserProfile(photoUrl)");
 
     if (
       !dbUser ||
@@ -63,12 +116,17 @@ async function requireAdmin(): Promise<CurrentAdminUser | null> {
       return null;
     }
 
+    const userProfile = Array.isArray(dbUser.UserProfile)
+      ? dbUser.UserProfile[0]
+      : dbUser.UserProfile;
+
     return {
       id: dbUser.id,
       email: dbUser.email,
       nom: dbUser.nom || "",
       prenom: dbUser.prenom || "",
       role: dbUser.role,
+      photoUrl: userProfile?.photoUrl || null,
     };
   } catch (error) {
     if (isNextInternalError(error)) {
@@ -111,131 +169,15 @@ export interface RealDatabaseUser {
 export async function getAdminStatsAction(): Promise<AdminDashboardStats> {
   const admin = await requireAdmin();
   if (!admin) {
-    return getEmptyStats();
+    return EMPTY_PLATFORM_STATS;
   }
 
-  const supabase = createAdminClient();
-
-  try {
-    // 1. Récupération des utilisateurs réels
-    const { data: users, error: usersError } = await supabase
-      .from("User")
-      .select("id, role, statutCompte, sexe, milieuResidence, situationHandicap, age");
-
-    if (usersError || !users) {
-      console.error("Erreur lors de la lecture des utilisateurs :", usersError?.message);
-      return getEmptyStats();
-    }
-
-    const totalUsers = users.length;
-    const totalBeneficiaries = users.filter((u) => u.role === "BENEFICIAIRE").length;
-    const totalMentors = users.filter((u) => u.role === "MENTOR").length;
-    const totalPartners = users.filter((u) => u.role === "PARTENAIRE").length;
-    const pendingValidations = users.filter(
-      (u) => (u.role === "MENTOR" || u.role === "EXPERT") && u.statutCompte === "PENDING"
-    ).length;
-
-    // 2. Récupération des programmes actifs
-    const { count: activeProgramsCount } = await supabase
-      .from("MentorshipProgram")
-      .select("id", { count: "exact", head: true })
-      .eq("statut", "ACTIVE");
-
-    // 3. Récupération des sessions complétées
-    const { count: completedSessionsCount } = await supabase
-      .from("MentorshipSession")
-      .select("id", { count: "exact", head: true })
-      .eq("statut", "COMPLETED");
-
-    // 4. Calculs démographiques réels
-    const usersWithGender = users.filter((u) => u.sexe);
-    const femalesCount = users.filter((u) => u.sexe === "FEMME").length;
-    const malesCount = users.filter((u) => u.sexe === "HOMME").length;
-
-    const femalePercentage =
-      usersWithGender.length > 0
-        ? Math.round((femalesCount / usersWithGender.length) * 100)
-        : 0;
-    const malePercentage =
-      usersWithGender.length > 0
-        ? Math.round((malesCount / usersWithGender.length) * 100)
-        : 0;
-
-    const usersWithResidence = users.filter((u) => u.milieuResidence);
-    const ruralCount = users.filter((u) => u.milieuResidence === "RURAL").length;
-    const urbanCount = users.filter((u) => u.milieuResidence === "URBAIN").length;
-
-    const ruralPercentage =
-      usersWithResidence.length > 0
-        ? Math.round((ruralCount / usersWithResidence.length) * 100)
-        : 0;
-    const urbanPercentage =
-      usersWithResidence.length > 0
-        ? Math.round((urbanCount / usersWithResidence.length) * 100)
-        : 0;
-
-    const sdhCount = users.filter((u) => u.situationHandicap === true).length;
-    const sdhPercentage =
-      totalUsers > 0 ? Math.round((sdhCount / totalUsers) * 100) : 0;
-
-    const usersWithAge = users.filter(
-      (u) => typeof u.age === "number" && u.age > 0
-    );
-    const averageAge =
-      usersWithAge.length > 0
-        ? Math.round(
-            usersWithAge.reduce((acc, u) => acc + (u.age || 0), 0) /
-              usersWithAge.length
-          )
-        : 0;
-
-    return {
-      totalUsers,
-      totalBeneficiaries,
-      totalMentors,
-      totalPartners,
-      pendingValidations,
-      activePrograms: activeProgramsCount || 0,
-      completedSessions: completedSessionsCount || 0,
-      satisfactionRate: completedSessionsCount && completedSessionsCount > 0 ? 100 : 0,
-      demographics: {
-        femalePercentage,
-        malePercentage,
-        ruralPercentage,
-        urbanPercentage,
-        sdhPercentage,
-        averageAge,
-      },
-    };
-  } catch (err) {
-    console.error("Erreur serveur inattendue dans getAdminStatsAction :", err);
-    return getEmptyStats();
-  }
-}
-
-function getEmptyStats(): AdminDashboardStats {
-  return {
-    totalUsers: 0,
-    totalBeneficiaries: 0,
-    totalMentors: 0,
-    totalPartners: 0,
-    pendingValidations: 0,
-    activePrograms: 0,
-    completedSessions: 0,
-    satisfactionRate: 0,
-    demographics: {
-      femalePercentage: 0,
-      malePercentage: 0,
-      ruralPercentage: 0,
-      urbanPercentage: 0,
-      sdhPercentage: 0,
-      averageAge: 0,
-    },
-  };
+  return computeAggregatedPlatformStats();
 }
 
 /**
  * Server Action : Récupère les profils réels en attente de validation administrative
+ * et génère des URLs signées temporaires pour les CV stockés dans le bucket privé.
  */
 export async function getPendingValidationsAction(): Promise<PendingValidationItem[]> {
   const admin = await requireAdmin();
@@ -250,7 +192,7 @@ export async function getPendingValidationsAction(): Promise<PendingValidationIt
       .from("User")
       .select(
         `id, email, nom, prenom, role, createdAt,
-         MentorProfile (id, fonction, organisation, anneesExperience, expertises, statutValidation)`
+         MentorProfile (id, fonction, organisation, anneesExperience, expertises, secteurs, biographie, cvUrl, linkedinUrl, references, typesMentoring, disponibilites, statutValidation)`
       )
       .in("role", ["MENTOR", "EXPERT"])
       .eq("statutCompte", "PENDING")
@@ -261,35 +203,68 @@ export async function getPendingValidationsAction(): Promise<PendingValidationIt
       return [];
     }
 
-    return pendingUsers.map((u: any) => {
-      const profile = Array.isArray(u.MentorProfile)
-        ? u.MentorProfile[0]
-        : u.MentorProfile;
+    const rows = pendingUsers as PendingUserRow[];
 
-      const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString("fr-FR", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }) : "Date non renseignée";
+    return Promise.all(
+      rows.map(async (u) => {
+        const profile = Array.isArray(u.MentorProfile)
+          ? u.MentorProfile[0]
+          : u.MentorProfile;
 
-      return {
-        id: u.id,
-        userId: u.id,
-        firstName: u.prenom || "",
-        lastName: u.nom || "",
-        email: u.email,
-        role: (u.role?.toLowerCase() === "expert" ? "expert" : "mentor") as "mentor" | "expert",
-        title: profile?.fonction || "Candidat Mentor / Expert",
-        organization: profile?.organisation || undefined,
-        yearsOfExperience: profile?.anneesExperience || 0,
-        expertises: profile?.expertises || [],
-        submittedAt: dateStr,
-        status: "pending",
-      };
-    });
+        const dateStr = u.createdAt
+          ? new Date(u.createdAt).toLocaleDateString("fr-FR", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "Date non renseignée";
+
+        let signedCvUrl: string | null = null;
+        if (profile?.cvUrl) {
+          if (
+            profile.cvUrl.startsWith("http://") ||
+            profile.cvUrl.startsWith("https://")
+          ) {
+            signedCvUrl = sanitizeExternalUrl(profile.cvUrl);
+          } else {
+            const { data: signedData } = await supabase.storage
+              .from(CV_STORAGE_BUCKET)
+              .createSignedUrl(profile.cvUrl, 3600);
+            signedCvUrl = sanitizeExternalUrl(signedData?.signedUrl);
+          }
+        }
+
+        return {
+          id: u.id,
+          userId: u.id,
+          firstName: u.prenom || "",
+          lastName: u.nom || "",
+          email: u.email,
+          role: (u.role?.toLowerCase() === "expert" ? "expert" : "mentor") as
+            | "mentor"
+            | "expert",
+          title: profile?.fonction || "Candidat Mentor / Expert",
+          organization: profile?.organisation || undefined,
+          yearsOfExperience: profile?.anneesExperience || 0,
+          expertises: profile?.expertises || [],
+          sectors: profile?.secteurs || [],
+          bio: profile?.biographie || undefined,
+          cvUrl: signedCvUrl,
+          linkedinUrl: sanitizeExternalUrl(profile?.linkedinUrl),
+          mentoringFormat: profile?.typesMentoring || undefined,
+          availability: profile?.disponibilites || null,
+          references: profile?.references || null,
+          submittedAt: dateStr,
+          status: "pending" as const,
+        };
+      })
+    );
   } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur inattendue dans getPendingValidationsAction :", err);
     return [];
   }
@@ -317,14 +292,22 @@ export async function updateUserStatusAction(
       : newStatus === "rejected"
       ? "REJECTED"
       : "SUSPENDED";
+  const now = new Date().toISOString();
 
   try {
-    // 1. Mettre à jour la table User
+    // 1. Lire l'utilisateur cible (notamment supabaseUid pour synchroniser les métadonnées Auth)
+    const { data: targetUser } = await supabase
+      .from("User")
+      .select("supabaseUid")
+      .eq("id", userId)
+      .maybeSingle();
+
+    // 2. Mettre à jour la table User
     const { error: userError } = await supabase
       .from("User")
       .update({
         statutCompte: dbStatus,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       })
       .eq("id", userId);
 
@@ -332,19 +315,52 @@ export async function updateUserStatusAction(
       throw new Error(`Erreur User : ${userError.message}`);
     }
 
-    // 2. Mettre à jour MentorProfile si applicable
-    await supabase
-      .from("MentorProfile")
-      .update({
-        statutValidation: dbStatus,
-        updatedAt: new Date().toISOString(),
-      })
-      .eq("userId", userId);
+    // 3. Mettre à jour MentorProfile (rendre disponible dès activation)
+    const mentorPatch =
+      dbStatus === "ACTIVE"
+        ? {
+            statutValidation: "ACTIVE",
+            isAvailable: true,
+            verifiedAt: now,
+            verifiedBy: admin.id,
+            updatedAt: now,
+          }
+        : {
+            statutValidation: dbStatus,
+            isAvailable: false,
+            updatedAt: now,
+          };
+
+    await supabase.from("MentorProfile").update(mentorPatch).eq("userId", userId);
+
+    // 4. Synchroniser le statut dans user_metadata Supabase Auth (best-effort)
+    if (targetUser?.supabaseUid) {
+      try {
+        const { data: authRecord } = await supabase.auth.admin.getUserById(
+          targetUser.supabaseUid
+        );
+        if (authRecord?.user) {
+          await supabase.auth.admin.updateUserById(targetUser.supabaseUid, {
+            user_metadata: {
+              ...(authRecord.user.user_metadata || {}),
+              status: dbStatus,
+              statutCompte: dbStatus,
+            },
+          });
+        }
+      } catch (metaErr) {
+        console.warn("Synchro user_metadata ignorée :", metaErr);
+      }
+    }
 
     revalidatePath("/admin");
     revalidatePath("/admin/dashboard");
     revalidatePath("/admin/validations");
     revalidatePath("/admin/users");
+    revalidatePath("/beneficiary/mentors");
+    revalidatePath("/dashboard/beneficiaire");
+    revalidatePath("/dashboard/mentor");
+    revalidatePath("/mentors");
 
     return {
       success: true,
@@ -355,11 +371,14 @@ export async function updateUserStatusAction(
           ? "Le compte a été suspendu."
           : "Le profil a été rejeté.",
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur updateUserStatusAction :", err);
     return {
       success: false,
-      message: err.message || "Erreur lors de la mise à jour du statut.",
+      message: "Erreur lors de la mise à jour du statut.",
     };
   }
 }
@@ -396,6 +415,9 @@ export async function getRealUsersListAction(
 
     return (existingUsers || []) as RealDatabaseUser[];
   } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur inattendue dans getRealUsersListAction :", err);
     return [];
   }
@@ -451,10 +473,11 @@ export async function syncAuthUsersToDatabaseAction(): Promise<{
     let syncedCount = 0;
 
     while (true) {
-      const { data: authPage, error: authErr } = await supabase.auth.admin.listUsers({
-        page,
-        perPage,
-      });
+      const { data: authPage, error: authErr } =
+        await supabase.auth.admin.listUsers({
+          page,
+          perPage,
+        });
 
       if (authErr) {
         throw new Error(authErr.message);
@@ -474,19 +497,28 @@ export async function syncAuthUsersToDatabaseAction(): Promise<{
 
       for (const missingUser of missingAuthUsers) {
         const meta = missingUser.user_metadata || {};
-        const rawRole = (meta.role || meta.account_type || "BENEFICIAIRE").toLowerCase();
+        const rawRole = (
+          meta.role ||
+          meta.account_type ||
+          "BENEFICIAIRE"
+        ).toLowerCase();
         const role = roleMap[rawRole] || "BENEFICIAIRE";
         const statutCompte =
-          role === "BENEFICIAIRE" ? "ACTIVE" : (meta.status || "PENDING");
+          role === "BENEFICIAIRE" ? "ACTIVE" : meta.status || "PENDING";
         const rawSexe = (meta.sexe || "").toUpperCase();
-        const sexe = rawSexe === "FEMME" ? "FEMME" : rawSexe === "HOMME" ? "HOMME" : null;
+        const sexe =
+          rawSexe === "FEMME" ? "FEMME" : rawSexe === "HOMME" ? "HOMME" : null;
         const rawMilieu = (
           meta.milieu_residence ||
           meta.milieuResidence ||
           ""
         ).toUpperCase();
         const milieuResidence =
-          rawMilieu === "RURAL" ? "RURAL" : rawMilieu === "URBAIN" ? "URBAIN" : null;
+          rawMilieu === "RURAL"
+            ? "RURAL"
+            : rawMilieu === "URBAIN"
+            ? "URBAIN"
+            : null;
         const situationHandicap = meta.sdh === "Oui" || meta.sdh === true;
 
         const { error: insertError } = await supabase.from("User").insert({
@@ -529,12 +561,15 @@ export async function syncAuthUsersToDatabaseAction(): Promise<{
       syncedCount,
       message: `${syncedCount} compte(s) synchronisé(s) avec succès.`,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur syncAuthUsersToDatabaseAction :", err);
     return {
       success: false,
       syncedCount: 0,
-      message: err.message || "Erreur lors de la synchronisation.",
+      message: "Erreur lors de la synchronisation des comptes.",
     };
   }
 }
@@ -542,7 +577,9 @@ export async function syncAuthUsersToDatabaseAction(): Promise<{
 /**
  * Server Action : Récupère les opportunités réelles depuis la base de données
  */
-export async function getRealOpportunitiesAction() {
+export async function getRealOpportunitiesAction(): Promise<
+  RealOpportunityRow[]
+> {
   const admin = await requireAdmin();
   if (!admin) {
     return [];
@@ -561,8 +598,11 @@ export async function getRealOpportunitiesAction() {
       return [];
     }
 
-    return opps;
+    return opps as RealOpportunityRow[];
   } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur inattendue dans getRealOpportunitiesAction :", err);
     return [];
   }
@@ -571,7 +611,9 @@ export async function getRealOpportunitiesAction() {
 /**
  * Server Action : Récupère les masterclasses réelles depuis la base de données
  */
-export async function getRealMasterclassesAction() {
+export async function getRealMasterclassesAction(): Promise<
+  RealMasterclassRow[]
+> {
   const admin = await requireAdmin();
   if (!admin) {
     return [];
@@ -590,8 +632,11 @@ export async function getRealMasterclassesAction() {
       return [];
     }
 
-    return mc;
+    return mc as RealMasterclassRow[];
   } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur inattendue dans getRealMasterclassesAction :", err);
     return [];
   }
@@ -600,7 +645,9 @@ export async function getRealMasterclassesAction() {
 /**
  * Server Action : Récupère le flux réel d'activités depuis la base de données
  */
-export async function getRecentAdminActivitiesAction(): Promise<RecentAdminActivity[]> {
+export async function getRecentAdminActivitiesAction(): Promise<
+  RecentAdminActivity[]
+> {
   const admin = await requireAdmin();
   if (!admin) {
     return [];
@@ -649,6 +696,9 @@ export async function getRecentAdminActivitiesAction(): Promise<RecentAdminActiv
       };
     });
   } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     console.error("Erreur getRecentAdminActivitiesAction :", err);
     return [];
   }

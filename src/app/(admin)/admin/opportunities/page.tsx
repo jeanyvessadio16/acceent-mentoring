@@ -43,7 +43,7 @@ export default async function AdminOpportunitiesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {opportunities.map((opp: any) => (
+          {opportunities.map((opp) => (
             <div
               key={opp.id}
               className="p-5 rounded-2xl bg-white border border-border shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
