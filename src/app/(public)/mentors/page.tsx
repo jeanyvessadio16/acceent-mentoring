@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { ArrowRight, Sparkles } from "lucide-react";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { apiRequest } from "@/lib/api/server-client";
 import { ROUTES } from "@/lib/constants";
 import { MentorsFilterableCatalog } from "@/features/mentors/MentorsFilterableCatalog";
 import type { MentorSearchResultItem } from "@/lib/actions/mentoring";
@@ -16,78 +16,14 @@ export const metadata: Metadata = {
     "Découvrez les mentors certifiés et experts de la communauté ACCEENT disponibles pour accompagner vos projets en Afrique et dans la diaspora.",
 };
 
-interface PublicMentorCardRow {
-  id: string;
-  userId: string;
-  fonction: string;
-  organisation: string | null;
-  anneesExperience: number | null;
-  expertises: string[] | null;
-  secteurs: string[] | null;
-  langues: string[] | null;
-  typesMentoring: string | null;
-  disponibilites: string | null;
-  biographie: string | null;
-  photoUrl: string | null;
-  isAvailable: boolean;
-  user:
-    | {
-        id?: string;
-        nom: string;
-        prenom: string;
-        pays: string | null;
-      }
-    | Array<{
-        id?: string;
-        nom: string;
-        prenom: string;
-        pays: string | null;
-      }>
-    | null;
-}
-
 export default async function PublicMentorsCatalogPage() {
   await connection();
-  const adminDb = createAdminClient();
-
-  const { data } = await adminDb
-    .from("MentorProfile")
-    .select(
-      "id, userId, fonction, organisation, anneesExperience, expertises, secteurs, langues, typesMentoring, disponibilites, biographie, photoUrl, isAvailable, user:User!userId (id, nom, prenom, pays)"
-    )
-    .eq("statutValidation", "ACTIVE")
-    .order("isAvailable", { ascending: false })
-    .order("anneesExperience", { ascending: false });
-
-  const rawMentors = (data as PublicMentorCardRow[] | null) ?? [];
-  const mentors: MentorSearchResultItem[] = rawMentors.map((mentor) => {
-    const userObj = Array.isArray(mentor.user)
-      ? mentor.user[0]
-      : mentor.user;
-    return {
-      id: mentor.id,
-      userId: mentor.userId,
-      fonction: mentor.fonction ?? "",
-      organisation: mentor.organisation ?? null,
-      anneesExperience: mentor.anneesExperience ?? 0,
-      expertises: mentor.expertises ?? [],
-      secteurs: mentor.secteurs ?? [],
-      langues: mentor.langues ?? [],
-      typesMentoring: mentor.typesMentoring ?? "INDIVIDUEL",
-      disponibilites: mentor.disponibilites ?? null,
-      biographie: mentor.biographie ?? null,
-      photoUrl: mentor.photoUrl ?? null,
-      isAvailable: Boolean(mentor.isAvailable),
-      user: userObj
-        ? {
-            id: userObj.id ?? mentor.userId,
-            nom: userObj.nom,
-            prenom: userObj.prenom,
-            pays: userObj.pays,
-          }
-        : null,
-    };
+  const res = await apiRequest<{ data: MentorSearchResultItem[] }>("/mentors", {
+    auth: false,
+    query: { limit: 50 },
   });
+
+  const mentors = res.data?.data ?? [];
 
   return (
     <div className="min-h-screen bg-slate-50">

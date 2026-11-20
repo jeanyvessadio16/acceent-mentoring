@@ -1,13 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
-import {
-  EMPTY_PLATFORM_STATS,
-  computeAggregatedPlatformStats,
-} from "@/lib/supabase/platform-stats";
-import { isNextInternalError } from "@/lib/utils/next-errors";
+import { apiRequest } from "@/lib/api/server-client";
 import type { AdminDashboardStats } from "@/types";
 
 export interface WorkspaceUserSummary {
@@ -139,112 +132,183 @@ export interface PartnerWorkspaceData {
   stats: AdminDashboardStats;
 }
 
-interface MenteeRef {
-  id?: string;
-  nom: string;
-  prenom: string;
-  email?: string;
-}
+const EMPTY_STATS: AdminDashboardStats = {
+  totalUsers: 0,
+  totalBeneficiaries: 0,
+  totalMentors: 0,
+  totalPartners: 0,
+  pendingValidations: 0,
+  activePrograms: 0,
+  completedSessions: 0,
+  satisfactionRate: 0,
+  demographics: {
+    femalePercentage: 0,
+    malePercentage: 0,
+    ruralPercentage: 0,
+    urbanPercentage: 0,
+    sdhPercentage: 0,
+    averageAge: 0,
+  },
+};
 
-interface DbMentorRequestRow {
-  id: string;
-  objectif: string | null;
-  problematique: string | null;
-  duree: string | null;
-  frequence: string | null;
-  format: string | null;
-  message: string | null;
-  status: string | null;
-  createdAt: string;
-  mentee: MenteeRef | MenteeRef[] | null;
-}
-
-interface DbMentorProgramRow {
-  id: string;
-  titre: string | null;
-  description: string | null;
-  status: string | null;
-  progression: number | null;
-  startDate: string;
-  mentee: MenteeRef | MenteeRef[] | null;
-  goals: Array<{ id: string }> | null;
-  tasks: Array<{ id: string }> | null;
-}
-
-interface DbWorkspaceSessionRow {
-  id: string;
-  titre: string | null;
-  dateDebut: string;
-  dateFin: string;
-  meetingUrl: string | null;
-  status: string | null;
-  mentee: MenteeRef | MenteeRef[] | null;
-}
-
-async function getAuthenticatedDbUser(): Promise<WorkspaceUserSummary | null> {
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !authUser) {
-      return null;
-    }
-
-    const adminDb = createAdminClient();
-    const { data: dbUser } = await findDbUserByAuth<{
+interface MentorDashboardApiResponse {
+  user: {
+    id: string;
+    nom: string;
+    prenom: string;
+    email: string;
+    role?: string;
+    statutCompte: string;
+    photoUrl?: string | null;
+  };
+  mentorProfile: {
+    id: string;
+    fonction: string;
+    organisation: string;
+    anneesExperience: number;
+    expertises: string[];
+    statutValidation: string;
+    isAvailable: boolean;
+    typesMentoring: string;
+  } | null;
+  requests?: Array<{
+    id: string;
+    objectif: string;
+    problematique: string;
+    duree: string;
+    frequence: string;
+    format: string;
+    message: string;
+    status: string;
+    createdAt: string;
+    mentee?: {
       id: string;
-      email: string;
-      nom: string | null;
-      prenom: string | null;
-      role: string;
-      statutCompte: string;
-      UserProfile:
-        | { photoUrl: string | null }
-        | Array<{ photoUrl: string | null }>
-        | null;
-    }>(
-      adminDb,
-      authUser,
-      "id, email, nom, prenom, role, statutCompte, UserProfile(photoUrl)"
-    );
+      nom: string;
+      prenom: string;
+      email?: string;
+    } | null;
+  }>;
+  pendingRequests?: Array<{ id: string }>;
+  activePrograms?: Array<{
+    id: string;
+    titre: string;
+    description: string | null;
+    status: string;
+    progression: number;
+    startDate: string;
+    mentee?: {
+      id: string;
+      nom: string;
+      prenom: string;
+      email?: string;
+    } | null;
+    _count?: {
+      goals: number;
+      tasks: number;
+    };
+  }>;
+  sessions?: Array<{
+    id: string;
+    titre: string;
+    dateDebut: string;
+    dateFin: string;
+    meetingUrl: string | null;
+    status: string;
+    mentee?: {
+      nom: string;
+      prenom: string;
+    } | null;
+  }>;
+  upcomingSessions?: Array<{
+    id: string;
+    titre: string;
+    dateDebut: string;
+    dateFin: string;
+    meetingUrl: string | null;
+    status: string;
+    mentee?: {
+      nom: string;
+      prenom: string;
+    } | null;
+  }>;
+  completedSessionsCount?: number;
+  activeSlots?: MentorAvailabilitySlotItem[];
+}
 
-    if (dbUser) {
-      const userProfile = Array.isArray(dbUser.UserProfile)
-        ? dbUser.UserProfile[0]
-        : dbUser.UserProfile;
+interface ExpertDashboardApiResponse {
+  user: {
+    id: string;
+    nom: string;
+    prenom: string;
+    email: string;
+    role?: string;
+    statutCompte: string;
+    photoUrl?: string | null;
+  };
+  mentorProfile: {
+    id: string;
+    fonction: string;
+    organisation: string;
+    statutValidation: string;
+  } | null;
+  masterclasses?: ExpertMasterclassItem[];
+  sessions?: Array<{
+    id: string;
+    titre: string;
+    dateDebut: string;
+    dateFin: string;
+    meetingUrl: string | null;
+    status: string;
+    mentee?: {
+      nom: string;
+      prenom: string;
+    } | null;
+  }>;
+  upcomingSessions?: Array<{ id: string }>;
+  completedSessionsCount?: number;
+}
 
-      return {
-        id: dbUser.id,
-        dbUserId: dbUser.id,
-        email: dbUser.email,
-        prenom: dbUser.prenom || "",
-        nom: dbUser.nom || "",
-        role: dbUser.role || "BENEFICIAIRE",
-        statutCompte: dbUser.statutCompte || "ACTIVE",
-        photoUrl: userProfile?.photoUrl || null,
-      };
-    }
-
-    return null;
-  } catch (err: unknown) {
-    if (isNextInternalError(err)) {
-      throw err;
-    }
-    console.error("Erreur getAuthenticatedDbUser :", err);
-    return null;
-  }
+interface PartnerDashboardApiResponse {
+  user: {
+    id: string;
+    nom: string;
+    prenom: string;
+    email: string;
+    role: string;
+    statutCompte?: string;
+    photoUrl?: string | null;
+  };
+  opportunities?: PartnerOpportunityItem[];
+  recentOpportunities?: PartnerOpportunityItem[];
+  opportunitiesSummary?: {
+    active: number;
+    expired: number;
+  };
+  aggregatedStats?: AdminDashboardStats;
 }
 
 /**
- * Server Action : Récupère les données réelles de l'espace Mentor
+ * Server Action : Récupère les données réelles de l'espace Mentor via `GET /dashboards/mentor`
  */
 export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceData | null> {
-  const user = await getAuthenticatedDbUser();
+  const res = await apiRequest<MentorDashboardApiResponse>("/dashboards/mentor");
+  if (!res.ok || !res.data) {
+    return null;
+  }
+
+  const d = res.data;
+  const user: WorkspaceUserSummary = {
+    id: d.user.id,
+    dbUserId: d.user.id,
+    email: d.user.email,
+    prenom: d.user.prenom || "",
+    nom: d.user.nom || "",
+    role: d.user.role || "MENTOR",
+    statutCompte: d.user.statutCompte || "ACTIVE",
+    photoUrl: d.user.photoUrl || null,
+  };
+
   if (
-    !user ||
     (user.role !== "MENTOR" && user.role !== "ADMIN") ||
     user.statutCompte === "SUSPENDED" ||
     user.statutCompte === "REJECTED"
@@ -252,196 +316,111 @@ export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceDat
     return null;
   }
 
-  if (!user.dbUserId) {
-    return {
-      user,
-      mentorProfile: null,
-      requests: [],
-      pendingRequestsCount: 0,
-      programs: [],
-      activeProgramsCount: 0,
-      sessions: [],
-      upcomingSessions: [],
-      completedSessionsCount: 0,
-      availabilitySlots: [],
-    };
-  }
+  const requests: MentorRequestItem[] = (d.requests || []).map((r) => ({
+    id: r.id,
+    objectif: r.objectif || "",
+    problematique: r.problematique || "",
+    duree: r.duree || "",
+    frequence: r.frequence || "",
+    format: r.format || "",
+    message: r.message || "",
+    status: r.status || "PENDING",
+    createdAt: r.createdAt,
+    menteeName: r.mentee
+      ? `${r.mentee.prenom} ${r.mentee.nom}`.trim()
+      : "Bénéficiaire",
+    menteeEmail: r.mentee?.email || "",
+  }));
 
-  try {
-    const adminDb = createAdminClient();
-    const dbUserId = user.dbUserId;
+  const programs: MentorProgramItem[] = (d.activePrograms || []).map((p) => ({
+    id: p.id,
+    titre: p.titre || "",
+    description: p.description || null,
+    status: p.status || "ACTIVE",
+    progression: Math.round(p.progression || 0),
+    startDate: p.startDate,
+    menteeName: p.mentee
+      ? `${p.mentee.prenom} ${p.mentee.nom}`.trim()
+      : "Bénéficiaire",
+    menteeEmail: p.mentee?.email || "",
+    goalsCount: p._count?.goals ?? 0,
+    tasksCount: p._count?.tasks ?? 0,
+  }));
 
-    const [profileRes, requestsRes, programsRes, sessionsRes, slotsRes] =
-      await Promise.all([
-        adminDb
-          .from("MentorProfile")
-          .select(
-            "id, fonction, organisation, anneesExperience, expertises, statutValidation, isAvailable, typesMentoring"
-          )
-          .eq("userId", dbUserId)
-          .maybeSingle(),
-        adminDb
-          .from("MentorshipRequest")
-          .select(
-            `
-          id, objectif, problematique, duree, frequence, format, message, status, createdAt,
-          mentee:User!menteeId (id, nom, prenom, email)
-        `
-          )
-          .eq("mentorId", dbUserId)
-          .order("createdAt", { ascending: false }),
-        adminDb
-          .from("MentorshipProgram")
-          .select(
-            `
-          id, titre, description, status, progression, startDate,
-          mentee:User!menteeId (id, nom, prenom, email),
-          goals:MentorshipGoal (id),
-          tasks:MentorshipTask (id)
-        `
-          )
-          .eq("mentorId", dbUserId)
-          .order("createdAt", { ascending: false }),
-        adminDb
-          .from("MentorshipSession")
-          .select(
-            `
-          id, titre, dateDebut, dateFin, meetingUrl, status,
-          mentee:User!menteeId (id, nom, prenom)
-        `
-          )
-          .eq("mentorId", dbUserId)
-          .order("dateDebut", { ascending: true }),
-        adminDb
-          .from("AvailabilitySlot")
-          .select(
-            "id, dayOfWeek, startTime, endTime, specificDate, isRecurring, isActive"
-          )
-          .eq("mentorId", dbUserId)
-          .eq("isActive", true),
-      ]);
+  const mapSession = (s: {
+    id: string;
+    titre: string;
+    dateDebut: string;
+    dateFin: string;
+    meetingUrl: string | null;
+    status: string;
+    mentee?: { nom: string; prenom: string } | null;
+  }): WorkspaceSessionItem => ({
+    id: s.id,
+    titre: s.titre || "",
+    dateDebut: s.dateDebut,
+    dateFin: s.dateFin,
+    meetingUrl: s.meetingUrl || null,
+    status: s.status || "SCHEDULED",
+    menteeName: s.mentee
+      ? `${s.mentee.prenom} ${s.mentee.nom}`.trim()
+      : "Bénéficiaire",
+  });
 
-    const typedRequests = (requestsRes.data || []) as unknown as DbMentorRequestRow[];
-    const requests: MentorRequestItem[] = typedRequests.map((r) => {
-      const mentee = Array.isArray(r.mentee) ? r.mentee[0] : r.mentee;
-      return {
-        id: r.id,
-        objectif: r.objectif || "",
-        problematique: r.problematique || "",
-        duree: r.duree || "",
-        frequence: r.frequence || "",
-        format: r.format || "",
-        message: r.message || "",
-        status: r.status || "PENDING",
-        createdAt: r.createdAt,
-        menteeName: mentee
-          ? `${mentee.prenom} ${mentee.nom}`.trim()
-          : "Bénéficiaire",
-        menteeEmail: mentee?.email || "",
-      };
-    });
+  const sessions = (d.sessions || []).map(mapSession);
+  const upcomingSessions = (d.upcomingSessions || []).map(mapSession);
 
-    const pendingRequestsCount = requests.filter(
-      (r) => r.status === "PENDING"
-    ).length;
-
-    const typedPrograms = (programsRes.data || []) as unknown as DbMentorProgramRow[];
-    const programs: MentorProgramItem[] = typedPrograms.map((p) => {
-      const mentee = Array.isArray(p.mentee) ? p.mentee[0] : p.mentee;
-      return {
-        id: p.id,
-        titre: p.titre || "",
-        description: p.description || null,
-        status: p.status || "ACTIVE",
-        progression: Math.round(p.progression || 0),
-        startDate: p.startDate,
-        menteeName: mentee
-          ? `${mentee.prenom} ${mentee.nom}`.trim()
-          : "Bénéficiaire",
-        menteeEmail: mentee?.email || "",
-        goalsCount: Array.isArray(p.goals) ? p.goals.length : 0,
-        tasksCount: Array.isArray(p.tasks) ? p.tasks.length : 0,
-      };
-    });
-
-    const activeProgramsCount = programs.filter(
-      (p) => p.status === "ACTIVE"
-    ).length;
-
-    const typedSessions = (sessionsRes.data || []) as unknown as DbWorkspaceSessionRow[];
-    const sessions: WorkspaceSessionItem[] = typedSessions.map((s) => {
-      const mentee = Array.isArray(s.mentee) ? s.mentee[0] : s.mentee;
-      return {
-        id: s.id,
-        titre: s.titre || "",
-        dateDebut: s.dateDebut,
-        dateFin: s.dateFin,
-        meetingUrl: s.meetingUrl || null,
-        status: s.status || "SCHEDULED",
-        menteeName: mentee
-          ? `${mentee.prenom} ${mentee.nom}`.trim()
-          : "Bénéficiaire",
-      };
-    });
-
-    const now = new Date();
-    const upcomingSessions = sessions.filter(
-      (s) => s.status === "SCHEDULED" && new Date(s.dateDebut) >= now
-    );
-    const completedSessionsCount = sessions.filter(
-      (s) => s.status === "COMPLETED"
-    ).length;
-
-    return {
-      user,
-      mentorProfile: profileRes.data
-        ? {
-            id: profileRes.data.id,
-            fonction: profileRes.data.fonction || "",
-            organisation: profileRes.data.organisation || "",
-            anneesExperience: profileRes.data.anneesExperience || 0,
-            expertises: profileRes.data.expertises || [],
-            statutValidation: profileRes.data.statutValidation || "PENDING",
-            isAvailable: Boolean(profileRes.data.isAvailable),
-            typesMentoring: profileRes.data.typesMentoring || "INDIVIDUEL",
-          }
-        : null,
-      requests,
-      pendingRequestsCount,
-      programs,
-      activeProgramsCount,
-      sessions,
-      upcomingSessions,
-      completedSessionsCount,
-      availabilitySlots: (slotsRes.data || []) as MentorAvailabilitySlotItem[],
-    };
-  } catch (err) {
-    if (isNextInternalError(err)) {
-      throw err;
-    }
-    console.error("Erreur getMentorWorkspaceDataAction :", err);
-    return {
-      user,
-      mentorProfile: null,
-      requests: [],
-      pendingRequestsCount: 0,
-      programs: [],
-      activeProgramsCount: 0,
-      sessions: [],
-      upcomingSessions: [],
-      completedSessionsCount: 0,
-      availabilitySlots: [],
-    };
-  }
+  return {
+    user,
+    mentorProfile: d.mentorProfile
+      ? {
+          id: d.mentorProfile.id,
+          fonction: d.mentorProfile.fonction || "",
+          organisation: d.mentorProfile.organisation || "",
+          anneesExperience: d.mentorProfile.anneesExperience || 0,
+          expertises: d.mentorProfile.expertises || [],
+          statutValidation: d.mentorProfile.statutValidation || "PENDING",
+          isAvailable: Boolean(d.mentorProfile.isAvailable),
+          typesMentoring: d.mentorProfile.typesMentoring || "INDIVIDUEL",
+        }
+      : null,
+    requests,
+    pendingRequestsCount:
+      d.pendingRequests?.length ??
+      requests.filter((r) => r.status === "PENDING").length,
+    programs,
+    activeProgramsCount: programs.filter((p) => p.status === "ACTIVE").length,
+    sessions,
+    upcomingSessions,
+    completedSessionsCount:
+      d.completedSessionsCount ??
+      sessions.filter((s) => s.status === "COMPLETED").length,
+    availabilitySlots: d.activeSlots || [],
+  };
 }
 
 /**
- * Server Action : Récupère les données réelles de l'espace Expert
+ * Server Action : Récupère les données réelles de l'espace Expert via `GET /dashboards/expert`
  */
 export async function getExpertWorkspaceDataAction(): Promise<ExpertWorkspaceData | null> {
-  const user = await getAuthenticatedDbUser();
+  const res = await apiRequest<ExpertDashboardApiResponse>("/dashboards/expert");
+  if (!res.ok || !res.data) {
+    return null;
+  }
+
+  const d = res.data;
+  const user: WorkspaceUserSummary = {
+    id: d.user.id,
+    dbUserId: d.user.id,
+    email: d.user.email,
+    prenom: d.user.prenom || "",
+    nom: d.user.nom || "",
+    role: d.user.role || "EXPERT",
+    statutCompte: d.user.statutCompte || "ACTIVE",
+    photoUrl: d.user.photoUrl || null,
+  };
+
   if (
-    !user ||
     (user.role !== "EXPERT" && user.role !== "ADMIN") ||
     user.statutCompte === "SUSPENDED" ||
     user.statutCompte === "REJECTED"
@@ -449,103 +428,62 @@ export async function getExpertWorkspaceDataAction(): Promise<ExpertWorkspaceDat
     return null;
   }
 
-  try {
-    const adminDb = createAdminClient();
-    const canViewMasterclasses =
-      user.role === "ADMIN" || user.statutCompte === "ACTIVE";
+  const sessions: WorkspaceSessionItem[] = (d.sessions || []).map((s) => ({
+    id: s.id,
+    titre: s.titre || "",
+    dateDebut: s.dateDebut,
+    dateFin: s.dateFin,
+    meetingUrl: s.meetingUrl || null,
+    status: s.status || "SCHEDULED",
+    menteeName: s.mentee
+      ? `${s.mentee.prenom} ${s.mentee.nom}`.trim()
+      : "Participant",
+  }));
 
-    const [profileRes, masterclassesRes, sessionsRes] = await Promise.all([
-      user.dbUserId
-        ? adminDb
-            .from("MentorProfile")
-            .select("id, fonction, organisation, statutValidation")
-            .eq("userId", user.dbUserId)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-      canViewMasterclasses
-        ? adminDb
-            .from("Masterclass")
-            .select(
-              "id, titre, intervenant, description, categorie, dateSession, duree, lienLive, lienReplay, statut, maxParticipants"
-            )
-            .order("dateSession", { ascending: true })
-        : Promise.resolve({ data: [] }),
-      user.dbUserId
-        ? adminDb
-            .from("MentorshipSession")
-            .select(
-              `
-              id, titre, dateDebut, dateFin, meetingUrl, status,
-              mentee:User!menteeId (id, nom, prenom)
-            `
-            )
-            .eq("mentorId", user.dbUserId)
-            .order("dateDebut", { ascending: true })
-        : Promise.resolve({ data: [] }),
-    ]);
-
-    const typedSessions = (sessionsRes.data || []) as unknown as DbWorkspaceSessionRow[];
-    const sessions: WorkspaceSessionItem[] = typedSessions.map((s) => {
-      const mentee = Array.isArray(s.mentee) ? s.mentee[0] : s.mentee;
-      return {
-        id: s.id,
-        titre: s.titre || "",
-        dateDebut: s.dateDebut,
-        dateFin: s.dateFin,
-        meetingUrl: s.meetingUrl || null,
-        status: s.status || "SCHEDULED",
-        menteeName: mentee
-          ? `${mentee.prenom} ${mentee.nom}`.trim()
-          : "Participant",
-      };
-    });
-
-    const now = new Date();
-    const upcomingSessionsCount = sessions.filter(
-      (s) => s.status === "SCHEDULED" && new Date(s.dateDebut) >= now
-    ).length;
-    const completedSessionsCount = sessions.filter(
-      (s) => s.status === "COMPLETED"
-    ).length;
-
-    return {
-      user,
-      mentorProfile: profileRes.data
-        ? {
-            id: profileRes.data.id,
-            fonction: profileRes.data.fonction || "",
-            organisation: profileRes.data.organisation || "",
-            statutValidation: profileRes.data.statutValidation || "PENDING",
-          }
-        : null,
-      masterclasses: (masterclassesRes.data || []) as ExpertMasterclassItem[],
-      sessions,
-      upcomingSessionsCount,
-      completedSessionsCount,
-    };
-  } catch (err) {
-    if (isNextInternalError(err)) {
-      throw err;
-    }
-    console.error("Erreur getExpertWorkspaceDataAction :", err);
-    return {
-      user,
-      mentorProfile: null,
-      masterclasses: [],
-      sessions: [],
-      upcomingSessionsCount: 0,
-      completedSessionsCount: 0,
-    };
-  }
+  return {
+    user,
+    mentorProfile: d.mentorProfile
+      ? {
+          id: d.mentorProfile.id,
+          fonction: d.mentorProfile.fonction || "",
+          organisation: d.mentorProfile.organisation || "",
+          statutValidation: d.mentorProfile.statutValidation || "PENDING",
+        }
+      : null,
+    masterclasses:
+      user.role === "ADMIN" || user.statutCompte === "ACTIVE"
+        ? d.masterclasses || []
+        : [],
+    sessions,
+    upcomingSessionsCount: d.upcomingSessions?.length ?? 0,
+    completedSessionsCount: d.completedSessionsCount ?? 0,
+  };
 }
 
 /**
- * Server Action : Récupère les données réelles de l'espace Partenaire
+ * Server Action : Récupère les données réelles de l'espace Partenaire via `GET /dashboards/partner`
  */
 export async function getPartnerWorkspaceDataAction(): Promise<PartnerWorkspaceData | null> {
-  const user = await getAuthenticatedDbUser();
+  const res = await apiRequest<PartnerDashboardApiResponse>(
+    "/dashboards/partner"
+  );
+  if (!res.ok || !res.data) {
+    return null;
+  }
+
+  const d = res.data;
+  const user: WorkspaceUserSummary = {
+    id: d.user.id,
+    dbUserId: d.user.id,
+    email: d.user.email,
+    prenom: d.user.prenom || "",
+    nom: d.user.nom || "",
+    role: d.user.role || "PARTENAIRE",
+    statutCompte: d.user.statutCompte || "ACTIVE",
+    photoUrl: d.user.photoUrl || null,
+  };
+
   if (
-    !user ||
     (user.role !== "PARTENAIRE" && user.role !== "ADMIN") ||
     user.statutCompte === "SUSPENDED" ||
     user.statutCompte === "REJECTED"
@@ -558,44 +496,19 @@ export async function getPartnerWorkspaceDataAction(): Promise<PartnerWorkspaceD
       user,
       opportunities: [],
       activeOpportunitiesCount: 0,
-      stats: EMPTY_PLATFORM_STATS,
+      stats: EMPTY_STATS,
     };
   }
 
-  try {
-    const adminDb = createAdminClient();
-    const [oppsRes, stats] = await Promise.all([
-      adminDb
-        .from("Opportunity")
-        .select(
-          "id, titre, organisation, categorie, description, localisation, typeContrat, lienCandidature, dateExpiration, status, createdAt"
-        )
-        .order("createdAt", { ascending: false }),
-      computeAggregatedPlatformStats(),
-    ]);
+  const opportunities = d.opportunities || d.recentOpportunities || [];
+  const activeOpportunitiesCount =
+    d.opportunitiesSummary?.active ??
+    opportunities.filter((o) => o.status === "ACTIVE").length;
 
-    const opportunities = (oppsRes.data || []) as PartnerOpportunityItem[];
-    const activeOpportunitiesCount = opportunities.filter(
-      (o) => o.status === "ACTIVE"
-    ).length;
-
-    return {
-      user,
-      opportunities,
-      activeOpportunitiesCount,
-      stats,
-    };
-  } catch (err) {
-    if (isNextInternalError(err)) {
-      throw err;
-    }
-    console.error("Erreur getPartnerWorkspaceDataAction :", err);
-    const stats = await computeAggregatedPlatformStats();
-    return {
-      user,
-      opportunities: [],
-      activeOpportunitiesCount: 0,
-      stats,
-    };
-  }
+  return {
+    user,
+    opportunities,
+    activeOpportunitiesCount,
+    stats: d.aggregatedStats ?? EMPTY_STATS,
+  };
 }

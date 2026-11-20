@@ -17,7 +17,7 @@ import { ROUTES } from "@/lib/constants";
 import {
   getPublicHomeStats,
   type PublicHomeStats,
-} from "@/lib/supabase/public-stats";
+} from "@/lib/api/public-stats";
 
 export const metadata: Metadata = {
   title: "ACCEENT Mentoring | Plateforme de mentoring, compétences et opportunités",

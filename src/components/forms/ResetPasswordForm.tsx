@@ -15,8 +15,8 @@ import {
   Lock,
 } from "lucide-react";
 
+import { resetPasswordAction } from "@/lib/actions/auth";
 import { REGEX_PATTERNS } from "@/lib/schemas/auth";
-import { createClient } from "@/lib/supabase/client";
 import { ROUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -60,38 +60,32 @@ export function ResetPasswordForm({ className }: { className?: string }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [hasSession, setHasSession] = useState<boolean | null>(null);
+  const [recoveryToken, setRecoveryToken] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    const supabase = createClient();
-
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (active) {
-          setHasSession(Boolean(data.session));
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setHasSession(false);
-        }
-      });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!active) return;
-        if (event === "PASSWORD_RECOVERY" || Boolean(session)) {
-          setHasSession(true);
-          setServerError(null);
-        }
+    Promise.resolve().then(() => {
+      if (!active || typeof window === "undefined") {
+        return;
       }
-    );
+      const rawHash = window.location.hash;
+      if (!rawHash || !rawHash.startsWith("#")) {
+        return;
+      }
+      const hashParams = new URLSearchParams(rawHash.slice(1));
+      const token = hashParams.get("access_token");
+      if (token) {
+        setRecoveryToken(token);
+        window.history.replaceState(
+          null,
+          "",
+          window.location.pathname + window.location.search
+        );
+      }
+    });
 
     return () => {
       active = false;
-      authListener.subscription.unsubscribe();
     };
   }, []);
 
@@ -112,30 +106,14 @@ export function ResetPasswordForm({ className }: { className?: string }) {
     setServerError(null);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
+      const result = await resetPasswordAction(data.password, recoveryToken);
+      if (!result.success) {
         setServerError(
-          "Votre lien de réinitialisation est invalide ou a expiré. Veuillez en demander un nouveau."
+          result.error || "Impossible de mettre à jour le mot de passe."
         );
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: data.password,
-      });
-
-      if (error) {
-        setServerError(
-          error.message || "Impossible de mettre à jour le mot de passe."
-        );
-        return;
-      }
-
-      await supabase.auth.signOut();
       setIsSuccess(true);
     } catch {
       setServerError(
@@ -176,26 +154,6 @@ export function ResetPasswordForm({ className }: { className?: string }) {
       className={cn("space-y-5", className)}
       noValidate
     >
-      {hasSession === false && !serverError && (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
-        >
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            Aucune session de récupération active détectée. Si votre lien a
-            expiré,{" "}
-            <Link
-              href={ROUTES.AUTH.FORGOT_PASSWORD}
-              className="font-semibold underline hover:text-amber-950"
-            >
-              demandez un nouveau lien
-            </Link>
-            .
-          </span>
-        </div>
-      )}
-
       {serverError && (
         <div
           role="alert"

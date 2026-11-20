@@ -1,36 +1,34 @@
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
+import { apiRequest } from "@/lib/api/server-client";
+import { getSessionTokens } from "@/lib/auth/session";
 import { getDashboardUrl } from "@/lib/utils/auth-redirect";
 import { isNextInternalError } from "@/lib/utils/next-errors";
 import { Navbar } from "./Navbar";
+
+interface AuthMeNavbarUser {
+  prenom?: string | null;
+  nom?: string | null;
+  role: string;
+  statutCompte: string;
+  dashboardUrl?: string;
+}
 
 async function resolveNavbarUser(): Promise<{
   displayName: string;
   dashboardUrl: string;
 } | null> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !authUser) {
+    const { accessToken, refreshToken } = await getSessionTokens();
+    if (!accessToken && !refreshToken) {
       return null;
     }
 
-    const adminDb = createAdminClient();
-    const { data: dbUser } = await findDbUserByAuth<{
-      id: string;
-      prenom: string | null;
-      nom: string | null;
-      role: string;
-      statutCompte: string;
-    }>(adminDb, authUser, "id, prenom, nom, role, statutCompte");
+    const res = await apiRequest<AuthMeNavbarUser>("/auth/me");
+    if (!res.ok || !res.data) {
+      return null;
+    }
 
+    const dbUser = res.data;
     if (
-      !dbUser ||
       dbUser.statutCompte === "SUSPENDED" ||
       dbUser.statutCompte === "REJECTED"
     ) {
@@ -39,7 +37,7 @@ async function resolveNavbarUser(): Promise<{
 
     const displayName =
       `${dbUser.prenom || ""} ${dbUser.nom || ""}`.trim() || "Mon espace";
-    const dashboardUrl = getDashboardUrl(dbUser.role);
+    const dashboardUrl = dbUser.dashboardUrl || getDashboardUrl(dbUser.role);
 
     return { displayName, dashboardUrl };
   } catch (err) {

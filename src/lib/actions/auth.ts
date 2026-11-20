@@ -2,21 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
+import { apiRequest } from "@/lib/api/server-client";
+import { clearSessionCookies, setSessionCookies } from "@/lib/auth/session";
 import {
   loginSchema,
   forgotPasswordSchema,
   registerSchema,
 } from "@/lib/schemas/auth";
 import { ROUTES } from "@/lib/constants";
-import { getDashboardUrl, getRedirectUrl } from "@/lib/utils/auth-redirect";
-import {
-  CV_STORAGE_BUCKET,
-  validateCvPdfBuffer,
-  buildCvStoragePath,
-} from "@/lib/utils/cv-upload";
+import { validateCvPdfBuffer } from "@/lib/utils/cv-upload";
 
 export type AuthActionResult = {
   success: boolean;
@@ -31,7 +25,37 @@ export type AuthActionResult = {
   };
 };
 
-const ROLE_MAP: Record<string, string> = {
+interface AuthApiSession {
+  accessToken: string;
+  refreshToken?: string;
+  expiresIn?: number;
+}
+
+interface AuthLoginApiResponse {
+  message?: string;
+  redirectUrl?: string;
+  dashboardUrl?: string;
+  session?: AuthApiSession | null;
+  user?: {
+    id: string;
+    email?: string;
+    role?: string;
+  };
+}
+
+interface AuthRegisterApiResponse {
+  message?: string;
+  redirectUrl?: string;
+  dashboardUrl?: string;
+  session?: AuthApiSession | null;
+  user?: {
+    id: string;
+    email?: string;
+    role?: string;
+  };
+}
+
+const ROLE_MAP: Record<string, "BENEFICIAIRE" | "MENTOR" | "EXPERT" | "PARTENAIRE"> = {
   beneficiary: "BENEFICIAIRE",
   beneficiaire: "BENEFICIAIRE",
   mentor: "MENTOR",
@@ -41,7 +65,7 @@ const ROLE_MAP: Record<string, string> = {
 };
 
 /**
- * Connexion avec email et mot de passe via Supabase Auth
+ * Connexion avec email et mot de passe via l'API NestJS `/auth/login`
  */
 export async function loginAction(
   values: unknown
@@ -54,106 +78,45 @@ export async function loginAction(
     };
   }
 
-  const { email, password } = parsed.data;
-  const supabase = await createClient();
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  const res = await apiRequest<AuthLoginApiResponse>("/auth/login", {
+    method: "POST",
+    auth: false,
+    body: {
+      email: parsed.data.email,
+      password: parsed.data.password,
+    },
   });
 
-  if (error || !data.user) {
-    let errorMessage = "Échec de connexion. Vérifiez vos identifiants.";
-    if (error?.message.includes("Invalid login credentials")) {
-      errorMessage = "Adresse email ou mot de passe incorrect.";
-    } else if (error?.message.includes("Email not confirmed")) {
-      errorMessage =
-        "Veuillez confirmer votre adresse email avant de vous connecter.";
-    }
-
+  if (!res.ok || !res.data) {
     return {
       success: false,
-      error: errorMessage,
+      error: res.error || "Adresse email ou mot de passe incorrect.",
     };
   }
 
-  const metadata = data.user.user_metadata || {};
-  const adminDb = createAdminClient();
-
-  // Source de vérité PostgreSQL : statut, rôle, diagnostic, mentorProfile
-  const { data: dbUser } = await findDbUserByAuth<{
-    id: string;
-    email: string;
-    role: string;
-    statutCompte: string;
-    MentorProfile?:
-      | { statutValidation?: string }
-      | Array<{ statutValidation?: string }>
-      | null;
-    Diagnostic?:
-      | { isCompleted?: boolean }
-      | Array<{ isCompleted?: boolean }>
-      | null;
-  }>(
-    adminDb,
-    { id: data.user.id, email: data.user.email },
-    "id, email, role, statutCompte, MentorProfile(statutValidation), Diagnostic(isCompleted)"
-  );
-
-  const status =
-    dbUser?.statutCompte || metadata.status || metadata.statutCompte || "ACTIVE";
-
-  if (status === "SUSPENDED") {
-    await supabase.auth.signOut();
-    return {
-      success: false,
-      error: "Votre compte a été suspendu par l'administration.",
-    };
+  if (res.data.session?.accessToken) {
+    await setSessionCookies(res.data.session);
   }
-
-  if (status === "REJECTED") {
-    await supabase.auth.signOut();
-    return {
-      success: false,
-      error: "Votre candidature a été refusée par l'administration.",
-    };
-  }
-
-  const mentorProfile = Array.isArray(dbUser?.MentorProfile)
-    ? dbUser.MentorProfile[0] ?? null
-    : dbUser?.MentorProfile ?? null;
-
-  const diagnostic = Array.isArray(dbUser?.Diagnostic)
-    ? dbUser.Diagnostic[0] ?? null
-    : dbUser?.Diagnostic ?? null;
-
-  const userRole =
-    dbUser?.role || metadata.role || metadata.account_type || "BENEFICIAIRE";
-
-  const redirectUrl = getRedirectUrl({
-    role: userRole,
-    mentorProfile,
-    diagnostic,
-    user_metadata: metadata,
-  });
-  const dashboardUrl = getDashboardUrl(userRole);
 
   revalidatePath("/", "layout");
   return {
     success: true,
-    message: "Connexion réussie.",
-    redirectUrl,
-    dashboardUrl,
-    user: {
-      id: dbUser?.id || data.user.id,
-      email: dbUser?.email || data.user.email,
-      role: userRole,
-    },
+    message: res.data.message || "Connexion réussie.",
+    redirectUrl: res.data.redirectUrl,
+    dashboardUrl: res.data.dashboardUrl,
+    user: res.data.user
+      ? {
+          id: res.data.user.id,
+          email: res.data.user.email,
+          role: res.data.user.role,
+        }
+      : undefined,
   };
 }
 
 /**
- * Inscription complète avec rôle et informations démographiques via Supabase Auth + synchronisation PostgreSQL
+ * Inscription complète avec rôle, informations démographiques et CV PDF (Mentors/Experts)
+ * via l'API NestJS `/auth/register`
  */
 export async function registerAction(
   values: FormData | unknown
@@ -199,8 +162,7 @@ export async function registerAction(
   const isMentorOrExpert =
     normalizedRole === "MENTOR" || normalizedRole === "EXPERT";
 
-  // Pré-validation stricte du CV PDF avant création du compte Supabase Auth
-  let cvBytes: Uint8Array | null = null;
+  let cvBase64: string | undefined;
   if (isMentorOrExpert) {
     if (!cvFile) {
       return {
@@ -210,7 +172,7 @@ export async function registerAction(
       };
     }
 
-    cvBytes = new Uint8Array(await cvFile.arrayBuffer());
+    const cvBytes = new Uint8Array(await cvFile.arrayBuffer());
     const cvValidation = validateCvPdfBuffer(cvFile.size, cvBytes);
     if (!cvValidation.valid) {
       return {
@@ -218,249 +180,64 @@ export async function registerAction(
         error: cvValidation.error,
       };
     }
+    cvBase64 = Buffer.from(cvBytes).toString("base64");
   }
 
-  const supabase = await createClient();
-
-  const { data: signUpData, error } = await supabase.auth.signUp({
-    email: data.email,
-    password: data.password,
-    options: {
-      data: {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        full_name: `${data.firstName} ${data.lastName}`.trim(),
-        role: data.accountType,
-        account_type: data.accountType,
-        phone: data.phone,
-        country: data.country,
-        age: data.age,
-        sexe: data.sexe,
-        milieu_residence: data.milieuResidence,
-        sdh: data.sdh,
-        accept_terms: data.acceptTerms,
-        accept_privacy: data.acceptPrivacy,
-        newsletter: data.newsletter,
-        ...(isMentorOrExpert
-          ? {
-              fonction: data.fonction?.trim(),
-              organisation: data.organisation?.trim(),
-              annees_experience: data.anneesExperience,
-            }
-          : {}),
-      },
-    },
-  });
-
-  if (error) {
-    let errorMessage = "Impossible de créer le compte pour le moment.";
-    if (error.message.includes("User already registered")) {
-      errorMessage = "Un compte existe déjà avec cette adresse email.";
-    }
-
-    return {
-      success: false,
-      error: errorMessage,
-    };
-  }
-
-  const statutCompte = normalizedRole === "BENEFICIAIRE" ? "ACTIVE" : "PENDING";
   const normalizedSexe =
-    data.sexe === "Femme" ? "FEMME" : data.sexe === "Homme" ? "HOMME" : null;
+    data.sexe === "Femme" ? "FEMME" : data.sexe === "Homme" ? "HOMME" : undefined;
   const normalizedMilieu =
     data.milieuResidence === "Rural"
       ? "RURAL"
       : data.milieuResidence === "Urbain"
       ? "URBAIN"
-      : null;
-  const situationHandicap = data.sdh === "Oui";
+      : undefined;
 
-  // Synchronisation immédiate et atomique dans PostgreSQL + stockage privé du CV
-  if (signUpData?.user) {
-    const adminDb = createAdminClient();
-    const { data: existingDbUser } = await findDbUserByAuth<{ id: string }>(
-      adminDb,
-      { id: signUpData.user.id, email: data.email },
-      "id"
-    );
-
-    if (existingDbUser) {
-      return {
-        success: false,
-        error: "Un compte existe déjà avec cette adresse email.",
-      };
-    }
-
-    const now = new Date().toISOString();
-    const newUserId = crypto.randomUUID();
-    let createdDbUserId: string | null = null;
-    let uploadedCvPath: string | null = null;
-
-    const rollbackRegistration = async () => {
-      if (uploadedCvPath) {
-        try {
-          await adminDb.storage.from(CV_STORAGE_BUCKET).remove([uploadedCvPath]);
-        } catch (cleanupErr) {
-          console.error("Erreur nettoyage CV lors du rollback :", cleanupErr);
-        }
-      }
-      if (createdDbUserId) {
-        try {
-          await adminDb.from("User").delete().eq("id", createdDbUserId);
-        } catch (dbCleanupErr) {
-          console.error("Erreur suppression User lors du rollback :", dbCleanupErr);
-        }
-      }
-      try {
-        await adminDb.auth.admin.deleteUser(signUpData.user!.id);
-      } catch (authCleanupErr) {
-        console.error(
-          "Erreur suppression Supabase Auth lors du rollback :",
-          authCleanupErr
-        );
-      }
-    };
-
-    const { error: insertUserErr } = await adminDb.from("User").insert({
-      id: newUserId,
-      supabaseUid: signUpData.user.id,
+  const res = await apiRequest<AuthRegisterApiResponse>("/auth/register", {
+    method: "POST",
+    auth: false,
+    body: {
       email: data.email,
+      password: data.password,
       nom: data.lastName.trim(),
       prenom: data.firstName.trim(),
-      telephone: data.phone || null,
-      pays: data.country || "Sénégal",
-      role: normalizedRole,
-      statutCompte,
-      age: data.age ?? null,
+      age: data.age,
       sexe: normalizedSexe,
       milieuResidence: normalizedMilieu,
-      situationHandicap,
+      situationHandicap: data.sdh === "Oui",
+      telephone: data.phone || undefined,
+      pays: data.country || "Sénégal",
+      role: normalizedRole,
       langue: "fr",
       consentCgu: Boolean(data.acceptTerms),
       consentData: Boolean(data.acceptPrivacy),
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    if (insertUserErr) {
-      console.error("Erreur insertion User après register :", insertUserErr.message);
-      await rollbackRegistration();
-      return {
-        success: false,
-        error:
-          insertUserErr.code === "23505"
-            ? "Un compte existe déjà avec cette adresse email."
-            : "Impossible de finaliser la création du compte. Veuillez réessayer.",
-      };
-    }
-
-    createdDbUserId = newUserId;
-
-    const { error: profileInsertErr } = await adminDb
-      .from("UserProfile")
-      .insert({
-        id: crypto.randomUUID(),
-        userId: newUserId,
-        anneesExperience: isMentorOrExpert ? data.anneesExperience ?? 1 : 0,
-        secteurActivite:
-          isMentorOrExpert && data.secteurs?.[0] ? data.secteurs[0] : null,
-        competences: isMentorOrExpert ? data.expertises || [] : [],
-        centresInteret: [],
-        objectifs: [],
-        langues: ["Français"],
-        disponibilite: isMentorOrExpert
-          ? data.disponibilites?.trim() || null
-          : null,
-        createdAt: now,
-        updatedAt: now,
-      });
-
-    if (profileInsertErr) {
-      console.error(
-        "Erreur insertion UserProfile après register :",
-        profileInsertErr.message
-      );
-      await rollbackRegistration();
-      return {
-        success: false,
-        error: "Impossible d'initialiser votre profil utilisateur.",
-      };
-    }
-
-    if (isMentorOrExpert) {
-      if (cvBytes) {
-        const cvStoragePath = buildCvStoragePath(newUserId);
-        const { error: cvUploadErr } = await adminDb.storage
-          .from(CV_STORAGE_BUCKET)
-          .upload(cvStoragePath, Buffer.from(cvBytes), {
-            contentType: "application/pdf",
-            cacheControl: "3600",
-            upsert: false,
-          });
-
-        if (cvUploadErr) {
-          console.error("Erreur téléversement CV PDF :", cvUploadErr.message);
-          await rollbackRegistration();
-          return {
-            success: false,
-            error:
-              "Impossible de téléverser votre CV PDF. L'inscription a été annulée.",
-          };
-        }
-
-        uploadedCvPath = cvStoragePath;
-      }
-
-      const { error: mentorInsertErr } = await adminDb
-        .from("MentorProfile")
-        .insert({
-          id: crypto.randomUUID(),
-          userId: newUserId,
-          fonction: data.fonction!.trim(),
-          organisation: data.organisation!.trim(),
-          anneesExperience: data.anneesExperience ?? 1,
-          expertises: data.expertises || [],
-          secteurs: data.secteurs || [],
-          langues: ["Français"],
-          publicsAccompagnes: [],
-          typesMentoring: data.typesMentoring || "INDIVIDUEL",
-          disponibilites: data.disponibilites?.trim() || null,
-          biographie: data.biographie!.trim(),
-          cvUrl: uploadedCvPath,
-          linkedinUrl: data.linkedinUrl?.trim() || null,
-          references: data.references?.trim() || null,
-          statutValidation: "PENDING",
-          isAvailable: false,
-          createdAt: now,
-          updatedAt: now,
-        });
-
-      if (mentorInsertErr) {
-        console.error(
-          "Erreur insertion MentorProfile :",
-          mentorInsertErr.message
-        );
-        await rollbackRegistration();
-        return {
-          success: false,
-          error:
-            "Impossible d'enregistrer votre profil mentor. L'inscription a été annulée.",
-        };
-      }
-    }
-  }
-
-  const redirectUrl = getRedirectUrl({
-    role: normalizedRole,
-    mentorProfile: isMentorOrExpert ? { statutValidation: "PENDING" } : null,
-    diagnostic: normalizedRole === "BENEFICIAIRE" ? { isCompleted: false } : null,
-    user_metadata: {
-      role: normalizedRole,
-      diagnostic_completed: false,
-      status: statutCompte,
+      ...(isMentorOrExpert
+        ? {
+            fonction: data.fonction?.trim(),
+            organisation: data.organisation?.trim(),
+            anneesExperience: data.anneesExperience,
+            expertises: data.expertises || [],
+            secteurs: data.secteurs || [],
+            typesMentoring: data.typesMentoring || "INDIVIDUEL",
+            disponibilites: data.disponibilites?.trim() || undefined,
+            biographie: data.biographie?.trim(),
+            linkedinUrl: data.linkedinUrl?.trim() || undefined,
+            references: data.references?.trim() || undefined,
+            cvBase64,
+          }
+        : {}),
     },
   });
-  const dashboardUrl = getDashboardUrl(normalizedRole);
+
+  if (!res.ok || !res.data) {
+    return {
+      success: false,
+      error: res.error || "Impossible de créer le compte pour le moment.",
+    };
+  }
+
+  if (res.data.session?.accessToken) {
+    await setSessionCookies(res.data.session);
+  }
 
   revalidatePath("/", "layout");
   revalidatePath("/admin/validations");
@@ -470,14 +247,15 @@ export async function registerAction(
   return {
     success: true,
     message:
+      res.data.message ||
       "Compte créé avec succès ! Vérifiez votre boîte email si une confirmation est requise.",
-    redirectUrl,
-    dashboardUrl,
+    redirectUrl: res.data.redirectUrl,
+    dashboardUrl: res.data.dashboardUrl,
   };
 }
 
 /**
- * Réinitialisation du mot de passe (envoi d'email avec lien magique vers /reset-password)
+ * Demande de réinitialisation du mot de passe via l'API NestJS `/auth/forgot-password`
  */
 export async function forgotPasswordAction(
   values: unknown
@@ -490,36 +268,75 @@ export async function forgotPasswordAction(
     };
   }
 
-  const { email } = parsed.data;
-  const supabase = await createClient();
   const siteUrl = (
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ).replace(/\/+$/, "");
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
+  const res = await apiRequest<{ message?: string }>("/auth/forgot-password", {
+    method: "POST",
+    auth: false,
+    body: {
+      email: parsed.data.email,
+      redirectTo: `${siteUrl}/reset-password`,
+    },
   });
 
-  if (error) {
+  if (!res.ok) {
     return {
       success: false,
-      error: "Impossible d'envoyer le lien de réinitialisation pour le moment.",
+      error:
+        res.error ||
+        "Impossible d'envoyer le lien de réinitialisation pour le moment.",
     };
   }
 
   return {
     success: true,
     message:
+      res.data?.message ||
       "Si un compte est associé à cette adresse, vous recevrrez un lien pour réinitialiser votre mot de passe.",
   };
 }
 
 /**
- * Déconnexion utilisateur
+ * Définit un nouveau mot de passe via l'API NestJS `/auth/reset-password`
+ */
+export async function resetPasswordAction(
+  newPassword: string,
+  recoveryAccessToken?: string | null
+): Promise<AuthActionResult> {
+  const res = await apiRequest<{ message?: string }>("/auth/reset-password", {
+    method: "POST",
+    body: { newPassword },
+    tokenOverride: recoveryAccessToken || undefined,
+  });
+
+  if (!res.ok) {
+    return {
+      success: false,
+      error:
+        res.error ||
+        "Votre lien de réinitialisation est invalide ou a expiré. Veuillez en demander un nouveau.",
+    };
+  }
+
+  await clearSessionCookies();
+  revalidatePath("/", "layout");
+
+  return {
+    success: true,
+    message:
+      res.data?.message ||
+      "Votre mot de passe a été réinitialisé avec succès.",
+  };
+}
+
+/**
+ * Déconnexion utilisateur via l'API NestJS `/auth/logout` et suppression des cookies de session
  */
 export async function signOutAction() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
+  await apiRequest("/auth/logout", { method: "POST" }).catch(() => null);
+  await clearSessionCookies();
   revalidatePath("/", "layout");
   redirect(ROUTES.HOME);
 }

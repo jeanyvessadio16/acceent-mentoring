@@ -1,31 +1,76 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import {
+  getSessionTokens,
+  isJwtExpired,
+  setSessionCookies,
+  type ApiSessionPayload,
+} from "@/lib/auth/session";
+import { getApiBaseUrlFromEnv } from "@/lib/auth/token-utils";
 
 export function getApiBaseUrl(): string {
-  const raw =
-    process.env.API_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:3001/api/v1";
-  return raw.replace(/\/+$/, "");
+  return getApiBaseUrlFromEnv();
+}
+
+interface RefreshApiResponse {
+  session?: {
+    accessToken?: string;
+    refreshToken?: string;
+    expiresIn?: number;
+  };
+}
+
+async function refreshAccessToken(
+  refreshToken: string
+): Promise<ApiSessionPayload | null> {
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = (await res.json().catch(() => null)) as RefreshApiResponse | null;
+    if (!data?.session?.accessToken) {
+      return null;
+    }
+
+    const nextSession: ApiSessionPayload = {
+      accessToken: data.session.accessToken,
+      refreshToken: data.session.refreshToken ?? refreshToken,
+      expiresIn: data.session.expiresIn,
+    };
+
+    try {
+      await setSessionCookies(nextSession);
+    } catch {
+      // Dans un Server Component en lecture seule, la mise à jour de cookie est ignorée.
+    }
+
+    return nextSession;
+  } catch {
+    return null;
+  }
 }
 
 export async function getAuthBearerToken(): Promise<string | null> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
+    const { accessToken, refreshToken } = await getSessionTokens();
 
-    if (error || !user) {
-      return null;
+    if (accessToken && !isJwtExpired(accessToken)) {
+      return accessToken;
     }
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    if (refreshToken) {
+      const refreshed = await refreshAccessToken(refreshToken);
+      return refreshed?.accessToken ?? null;
+    }
 
-    return session?.access_token ?? null;
+    return null;
   } catch {
     return null;
   }
@@ -35,6 +80,7 @@ export interface ApiRequestOptions {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   auth?: boolean;
+  tokenOverride?: string;
   query?: Record<string, string | number | boolean | undefined | null>;
 }
 
@@ -45,26 +91,10 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-export async function apiRequest<T>(
+function buildUrl(
   path: string,
-  options: ApiRequestOptions = {}
-): Promise<ApiResponse<T>> {
-  const { method = "GET", body, auth = true, query } = options;
-
-  const headers: Record<string, string> = {};
-  if (auth) {
-    const token = await getAuthBearerToken();
-    if (!token) {
-      return {
-        ok: false,
-        status: 401,
-        data: null,
-        error: "Session expirée. Veuillez vous reconnecter.",
-      };
-    }
-    headers.Authorization = `Bearer ${token}`;
-  }
-
+  query?: Record<string, string | number | boolean | undefined | null>
+): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   let url = `${getApiBaseUrl()}${normalizedPath}`;
 
@@ -81,17 +111,73 @@ export async function apiRequest<T>(
     }
   }
 
-  if (body !== undefined) {
+  return url;
+}
+
+function extractApiError(status: number, parsed: unknown): string {
+  let errorMsg = `Erreur API (${status}).`;
+  if (parsed && typeof parsed === "object" && "message" in parsed) {
+    const rawMsg = (parsed as { message?: unknown }).message;
+    if (typeof rawMsg === "string" && rawMsg.trim()) {
+      errorMsg = rawMsg;
+    } else if (Array.isArray(rawMsg) && rawMsg.length > 0) {
+      errorMsg = rawMsg.map((item) => String(item)).join(", ");
+    }
+  }
+  return errorMsg;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {}
+): Promise<ApiResponse<T>> {
+  const { method = "GET", body, auth = true, tokenOverride, query } = options;
+
+  const headers: Record<string, string> = {};
+  if (tokenOverride) {
+    headers.Authorization = `Bearer ${tokenOverride}`;
+  } else if (auth) {
+    const token = await getAuthBearerToken();
+    if (!token) {
+      return {
+        ok: false,
+        status: 401,
+        data: null,
+        error: "Session expirée. Veuillez vous reconnecter.",
+      };
+    }
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const url = buildUrl(path, query);
+  const serializedBody = body !== undefined ? JSON.stringify(body) : undefined;
+  if (serializedBody !== undefined) {
     headers["Content-Type"] = "application/json";
   }
 
   try {
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: serializedBody,
       cache: "no-store",
     });
+
+    if (response.status === 401 && auth && !tokenOverride) {
+      const { refreshToken } = await getSessionTokens();
+      if (refreshToken) {
+        const refreshed = await refreshAccessToken(refreshToken);
+        if (refreshed?.accessToken) {
+          headers.Authorization = `Bearer ${refreshed.accessToken}`;
+          response = await fetch(url, {
+            method,
+            headers,
+            body: serializedBody,
+            cache: "no-store",
+          });
+        }
+      }
+    }
 
     const contentType = response.headers.get("content-type") || "";
     const isJson = contentType.includes("application/json");
@@ -100,20 +186,11 @@ export async function apiRequest<T>(
       : null;
 
     if (!response.ok) {
-      let errorMsg = `Erreur API (${response.status}).`;
-      if (parsed && typeof parsed === "object" && "message" in parsed) {
-        const rawMsg = (parsed as { message?: unknown }).message;
-        if (typeof rawMsg === "string" && rawMsg.trim()) {
-          errorMsg = rawMsg;
-        } else if (Array.isArray(rawMsg) && rawMsg.length > 0) {
-          errorMsg = rawMsg.map((item) => String(item)).join(", ");
-        }
-      }
       return {
         ok: false,
         status: response.status,
         data: null,
-        error: errorMsg,
+        error: extractApiError(response.status, parsed),
       };
     }
 
@@ -123,6 +200,7 @@ export async function apiRequest<T>(
       data: parsed as T,
     };
   } catch (err) {
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     console.error(`Erreur réseau apiRequest (${method} ${normalizedPath}):`, err);
     return {
       ok: false,

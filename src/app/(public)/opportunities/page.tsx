@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { apiRequest } from "@/lib/api/server-client";
 import { ROUTES } from "@/lib/constants";
 import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 
@@ -38,17 +38,15 @@ interface PublicOpportunityCard {
 
 export default async function PublicOpportunitiesCatalogPage() {
   await connection();
-  const adminDb = createAdminClient();
+  const res = await apiRequest<{ data: PublicOpportunityCard[] }>(
+    "/opportunities",
+    {
+      auth: false,
+      query: { status: "ACTIVE", limit: 50 },
+    }
+  );
 
-  const { data } = await adminDb
-    .from("Opportunity")
-    .select(
-      "id, titre, organisation, categorie, description, localisation, typeContrat, lienCandidature, dateExpiration, status"
-    )
-    .eq("status", "ACTIVE")
-    .order("createdAt", { ascending: false });
-
-  const opportunities = (data as PublicOpportunityCard[] | null) ?? [];
+  const opportunities = res.data?.data ?? [];
 
   return (
     <div className="min-h-screen bg-slate-50">

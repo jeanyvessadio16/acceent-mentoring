@@ -12,7 +12,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+import { apiRequest } from "@/lib/api/server-client";
 import { ROUTES } from "@/lib/constants";
 
 export const instant = false;
@@ -37,17 +37,15 @@ interface PublicMasterclassCard {
 
 export default async function PublicMasterclassesCatalogPage() {
   await connection();
-  const adminDb = createAdminClient();
+  const res = await apiRequest<{ data: PublicMasterclassCard[] }>(
+    "/masterclasses",
+    {
+      auth: false,
+      query: { limit: 50 },
+    }
+  );
 
-  // Sélection stricte sans exposer lienLive ni lienReplay aux visiteurs non connectés
-  const { data } = await adminDb
-    .from("Masterclass")
-    .select(
-      "id, titre, intervenant, description, categorie, dateSession, duree, statut, maxParticipants"
-    )
-    .order("dateSession", { ascending: false });
-
-  const masterclasses = (data as PublicMasterclassCard[] | null) ?? [];
+  const masterclasses = res.data?.data ?? [];
 
   return (
     <div className="min-h-screen bg-slate-50">

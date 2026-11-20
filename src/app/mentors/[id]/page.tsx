@@ -12,7 +12,7 @@ import {
   MapPin,
   Users,
 } from "lucide-react";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { apiRequest } from "@/lib/api/server-client";
 import { ROUTES } from "@/lib/constants";
 import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 
@@ -55,35 +55,10 @@ export default async function MentorProfileDetailPage({
 }) {
   await connection();
   const { id } = await params;
-  const adminDb = createAdminClient();
-
-  const selectQuery = `
-    id, userId, fonction, organisation, anneesExperience,
-    expertises, secteurs, langues, publicsAccompagnes,
-    typesMentoring, disponibilites, biographie, photoUrl,
-    linkedinUrl, statutValidation, isAvailable,
-    user:User!userId (id, nom, prenom, pays)
-  `;
-
-  // Recherche par MentorProfile.id puis fallback par MentorProfile.userId
-  const byProfileId = await adminDb
-    .from("MentorProfile")
-    .select(selectQuery)
-    .eq("id", id)
-    .eq("statutValidation", "ACTIVE")
-    .maybeSingle();
-
-  let mentorRecord = byProfileId.data as MentorDetailRecord | null;
-
-  if (!mentorRecord) {
-    const byUserId = await adminDb
-      .from("MentorProfile")
-      .select(selectQuery)
-      .eq("userId", id)
-      .eq("statutValidation", "ACTIVE")
-      .maybeSingle();
-    mentorRecord = byUserId.data as MentorDetailRecord | null;
-  }
+  const res = await apiRequest<MentorDetailRecord>(`/mentors/${id}`, {
+    auth: false,
+  });
+  const mentorRecord = res.ok ? res.data : null;
 
   if (!mentorRecord) {
     notFound();
