@@ -30,7 +30,7 @@ export default async function AdminLayout({
   const pendingCount = pendingItems.length;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-background text-foreground flex">
       {/* Sidebar Desktop fixe */}
       <AdminSidebar
         pendingCount={pendingCount}
@@ -41,7 +41,10 @@ export default async function AdminLayout({
       {/* Contenu principal */}
       <div className="flex-1 flex flex-col min-w-0">
         <AdminHeader pendingCount={pendingCount} currentUser={currentUser} />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+        <main
+          data-dashboard-surface
+          className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6"
+        >
           {children}
         </main>
       </div>

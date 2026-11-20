@@ -11,6 +11,8 @@ import {
 import { getPartnerWorkspaceDataAction } from "@/lib/actions/workspace";
 import { ROUTES } from "@/lib/constants";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Tableau de Bord Partenaire | ACCEENT Mentoring",
   description: "Suivi des cohortes parrainées, publications d'opportunités et rapports d'impact.",

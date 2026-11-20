@@ -4,6 +4,8 @@ import { Calendar, Clock, User, Video } from "lucide-react";
 import { getExpertWorkspaceDataAction } from "@/lib/actions/workspace";
 import { ROUTES } from "@/lib/constants";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Mes Sessions | Espace Expert ACCEENT Mentoring",
   description: "Consultez vos sessions techniques et interventions individuelles.",

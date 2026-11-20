@@ -12,6 +12,8 @@ import {
 } from "@/features/beneficiary";
 import { ROUTES } from "@/lib/constants";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Tableau de Bord Bénéficiaire | ACCEENT Mentoring",
   description: "Suivez vos parcours de mentoring, vos rendez-vous et vos opportunités.",

@@ -5,6 +5,8 @@ import { Clock, ShieldCheck, CheckCircle2, XCircle, ArrowRight, UserCheck } from
 import { getMentorWorkspaceDataAction } from "@/lib/actions/workspace";
 import { ROUTES } from "@/lib/constants";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Suivi de Candidature Mentor | ACCEENT Mentoring",
   description: "Suivez l'état de validation administrative de votre profil mentor sans quitter votre espace.",

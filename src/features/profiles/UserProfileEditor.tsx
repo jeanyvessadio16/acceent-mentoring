@@ -20,12 +20,15 @@ import {
   Camera,
   Upload,
   Trash2,
+  Download,
 } from "lucide-react";
 import type { UserFullProfile } from "@/lib/actions/profile";
 import {
   updateUserFullProfileAction,
   uploadProfilePhotoAction,
   deleteProfilePhotoAction,
+  updateMentorAvailabilityAction,
+  deleteMyAccountAction,
 } from "@/lib/actions/profile";
 import {
   MAX_PROFILE_PHOTO_BYTES,
@@ -128,10 +131,20 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
   const [disponibilite, setDisponibilite] = useState(
     profile.disponibilite || ""
   );
+  const [isPublic, setIsPublic] = useState(profile.isPublic);
 
   // Mentor spécifique
   const isMentorOrExpert =
     profile.role === "MENTOR" || profile.role === "EXPERT";
+  const [mentorAvailable, setMentorAvailable] = useState(
+    profile.mentorProfile?.isAvailable ?? true
+  );
+  const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
+
+  // RGPD Suppression de compte
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [fonction, setFonction] = useState(
     profile.mentorProfile?.fonction || ""
   );
@@ -310,7 +323,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
       objectifs,
       langues,
       disponibilite,
-      isPublic: profile.isPublic,
+      isPublic,
       fonction,
       organisation,
       biographie,
@@ -341,6 +354,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
               secteurActivite: secteurActivite || null,
               competences,
               objectifs,
+              isPublic,
               completionScore: result.completionScore!,
               missingFields: prev.missingFields.filter(
                 (f) =>
@@ -372,6 +386,58 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
   };
 
   const initials = `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase() || "U";
+
+  const handleToggleMentorAvailability = async () => {
+    const nextValue = !mentorAvailable;
+    setIsTogglingAvailability(true);
+    setFeedback(null);
+    try {
+      const res = await updateMentorAvailabilityAction(nextValue);
+      if (res.success) {
+        setMentorAvailable(res.isAvailable ?? nextValue);
+        setFeedback({ type: "success", message: res.message });
+        router.refresh();
+      } else {
+        setFeedback({ type: "error", message: res.message });
+      }
+    } catch {
+      setFeedback({
+        type: "error",
+        message: "Erreur lors de la mise à jour de votre disponibilité.",
+      });
+    } finally {
+      setIsTogglingAvailability(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText.trim().toUpperCase() !== "SUPPRIMER") {
+      setFeedback({
+        type: "error",
+        message: "Veuillez saisir SUPPRIMER pour confirmer la suppression.",
+      });
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setFeedback(null);
+    try {
+      const res = await deleteMyAccountAction();
+      if (res.success) {
+        router.push("/");
+        router.refresh();
+      } else {
+        setFeedback({ type: "error", message: res.message });
+      }
+    } catch {
+      setFeedback({
+        type: "error",
+        message: "Une erreur est survenue lors de la suppression du compte.",
+      });
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -784,6 +850,92 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                       Formats acceptés : JPG ou PNG · Taille maximale : 5 Mo
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Confidentialité & RGPD (F02) */}
+              <div className="sm:col-span-2 pt-4 border-t border-border space-y-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="font-semibold text-foreground block">
+                      Profil visible dans la communauté (F02)
+                    </span>
+                    <span className="text-[11px] text-muted-foreground block mt-0.5">
+                      Choisissez si vos informations générales de profil peuvent être consultées publiquement.
+                    </span>
+                  </div>
+                  <label className="relative inline-flex items-center gap-2 cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={isPublic}
+                      onChange={(e) => setIsPublic(e.target.checked)}
+                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    />
+                    <span className="text-xs font-semibold text-foreground">
+                      {isPublic ? "Public" : "Privé"}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="p-4 rounded-2xl border border-border bg-white space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-primary" />
+                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wide">
+                      Mes droits RGPD &amp; Données personnelles
+                    </h4>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Conformément au RGPD, vous pouvez exporter l&apos;ensemble de vos données au format JSON ou supprimer définitivement votre compte.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <a
+                      href="/api/exports/users/me/export"
+                      download="acceent-mes-donnees-rgpd.json"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-primary/30 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>Télécharger mes données (JSON)</span>
+                    </a>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowDeleteConfirm((prev) => !prev)}
+                      className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl h-9 px-3"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      Supprimer mon compte
+                    </Button>
+                  </div>
+
+                  {showDeleteConfirm && (
+                    <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 space-y-3">
+                      <p className="text-xs font-semibold text-destructive">
+                        Action irréversible : toutes vos données, demandes, parcours et messages seront supprimés.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={deleteConfirmText}
+                          onChange={(e) => setDeleteConfirmText(e.target.value)}
+                          placeholder="Saisissez SUPPRIMER pour confirmer"
+                          className="flex-1 px-3 py-2 rounded-xl border border-destructive/30 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-destructive/20"
+                        />
+                        <Button
+                          type="button"
+                          disabled={isDeletingAccount || deleteConfirmText.trim().toUpperCase() !== "SUPPRIMER"}
+                          onClick={() => void handleDeleteAccount()}
+                          className="bg-destructive hover:bg-destructive/90 text-white text-xs font-semibold rounded-xl h-9 px-4"
+                        >
+                          {isDeletingAccount ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                          ) : null}
+                          Confirmer la suppression
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1211,6 +1363,34 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                 Présentez votre parcours professionnel et vos méthodes d&apos;accompagnement.
               </p>
             </div>
+
+            {profile.mentorProfile && (
+              <div className="p-4 rounded-2xl bg-slate-50 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-xs font-bold text-foreground block">
+                    Disponibilité pour de nouveaux mentorés (F03)
+                  </span>
+                  <span className="text-[11px] text-muted-foreground block mt-0.5">
+                    {mentorAvailable
+                      ? "Votre profil est actif dans les recherches (si validé par l'administration)."
+                      : "Votre profil est temporairement masqué pour les nouvelles demandes."}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  variant={mentorAvailable ? "outline" : "default"}
+                  size="sm"
+                  disabled={isTogglingAvailability}
+                  onClick={() => void handleToggleMentorAvailability()}
+                  className="rounded-full text-xs font-semibold h-9 px-4 shrink-0"
+                >
+                  {isTogglingAvailability ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  ) : null}
+                  {mentorAvailable ? "Suspendre ma disponibilité" : "Réactiver ma disponibilité"}
+                </Button>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div>

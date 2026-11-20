@@ -5,6 +5,8 @@ import { getCurrentUserProfile } from "@/lib/actions/profile";
 import { UserProfileEditor } from "@/features/profiles";
 import { ROUTES } from "@/lib/constants";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Mon Profil Administrateur | Administration ACCEENT Mentoring",
   description: "Consultez, modifiez et complétez votre profil administrateur sans quitter la console.",

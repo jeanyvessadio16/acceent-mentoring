@@ -7,6 +7,7 @@ import { findDbUserByAuth } from "@/lib/supabase/user-lookup";
 import { profileUpdateSchema } from "@/lib/schemas/profile";
 import { calculateProfileCompletion } from "@/lib/utils/profile-completion";
 import { isNextInternalError } from "@/lib/utils/next-errors";
+import { apiRequest } from "@/lib/api/server-client";
 import {
   PROFILE_AVATAR_BUCKET,
   validateProfilePhotoBuffer,
@@ -58,6 +59,7 @@ export interface UserFullProfile {
     typesMentoring: string;
     linkedinUrl: string | null;
     statutValidation: string;
+    isAvailable: boolean;
   } | null;
 
   // Métriques de complétion
@@ -92,6 +94,7 @@ interface DbMentorProfileRow {
   typesMentoring: string | null;
   linkedinUrl: string | null;
   statutValidation: string | null;
+  isAvailable: boolean | null;
 }
 
 interface DbProfileUserRow {
@@ -140,7 +143,7 @@ export async function getCurrentUserProfile(): Promise<UserFullProfile | null> {
         id, supabaseUid, email, nom, prenom, telephone, pays, role, statutCompte,
         age, sexe, milieuResidence, situationHandicap, langue, createdAt,
         UserProfile (id, photoUrl, ville, localisation, niveauEtude, secteurActivite, anneesExperience, competences, centresInteret, objectifs, langues, disponibilite, isPublic),
-        MentorProfile (id, fonction, organisation, anneesExperience, expertises, secteurs, biographie, typesMentoring, linkedinUrl, statutValidation)
+        MentorProfile (id, fonction, organisation, anneesExperience, expertises, secteurs, biographie, typesMentoring, linkedinUrl, statutValidation, isAvailable)
       `
       );
 
@@ -271,6 +274,7 @@ export async function getCurrentUserProfile(): Promise<UserFullProfile | null> {
           typesMentoring: rawMentor.typesMentoring || "INDIVIDUEL",
           linkedinUrl: rawMentor.linkedinUrl || null,
           statutValidation: rawMentor.statutValidation || "PENDING",
+          isAvailable: rawMentor.isAvailable ?? true,
         }
         : null,
 
@@ -780,4 +784,75 @@ export async function deleteProfilePhotoAction(): Promise<PhotoUploadResult> {
       message: "Une erreur inattendue est survenue lors de la suppression.",
     };
   }
+}
+
+/**
+ * Server Action : Active ou suspend la disponibilité d'un mentor (F03) via l'API NestJS
+ */
+export async function updateMentorAvailabilityAction(
+  isAvailable: boolean
+): Promise<{ success: boolean; isAvailable?: boolean; message: string }> {
+  const res = await apiRequest<{ isAvailable?: boolean }>(
+    "/mentors/me/availability",
+    {
+      method: "PATCH",
+      body: { isAvailable },
+    }
+  );
+
+  if (!res.ok) {
+    return {
+      success: false,
+      message:
+        res.error || "Impossible de mettre à jour votre disponibilité.",
+    };
+  }
+
+  revalidateAllProfilePaths();
+  revalidatePath("/mentors");
+  revalidatePath("/beneficiary/mentors");
+
+  return {
+    success: true,
+    isAvailable: res.data?.isAvailable ?? isAvailable,
+    message: isAvailable
+      ? "Votre profil est désormais visible pour recevoir de nouvelles demandes."
+      : "Votre disponibilité est temporairement suspendue.",
+  };
+}
+
+/**
+ * Server Action : Suppression complète du compte utilisateur (RGPD - F02) via l'API NestJS
+ */
+export async function deleteMyAccountAction(): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  const res = await apiRequest<{ message?: string }>("/users/me", {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    return {
+      success: false,
+      message:
+        res.error || "Impossible de supprimer votre compte pour le moment.",
+    };
+  }
+
+  try {
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+  } catch {
+    // Session déjà invalidée côté serveur
+  }
+
+  revalidatePath("/", "layout");
+
+  return {
+    success: true,
+    message:
+      res.data?.message ||
+      "Votre compte et vos données personnelles ont été supprimés.",
+  };
 }

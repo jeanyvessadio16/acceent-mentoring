@@ -8,6 +8,8 @@ import {
   Compass,
 } from "lucide-react";
 import { BeneficiarySidebar } from "./BeneficiarySidebar";
+import { NotificationBell } from "@/features/notifications/NotificationBell";
+import { ThemeToggle } from "@/components/theme";
 import { ROUTES } from "@/lib/constants";
 
 interface BeneficiaryHeaderProps {
@@ -28,14 +30,17 @@ export function BeneficiaryHeader({
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-border px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+      <header
+        data-dashboard-surface
+        className="h-16 bg-card border-b border-border px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30"
+      >
         <div className="flex items-center gap-3">
           {/* Burger menu mobile */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Ouvrir le menu de navigation"
-            className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 focus:outline-none"
+            className="md:hidden p-2 rounded-lg text-muted-foreground hover:bg-muted focus:outline-none"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -62,6 +67,9 @@ export function BeneficiaryHeader({
               <span>Compléter mon diagnostic</span>
             </Link>
           )}
+
+          <ThemeToggle />
+          <NotificationBell />
 
           <Link
             href={ROUTES.BENEFICIARY.PROFILE}

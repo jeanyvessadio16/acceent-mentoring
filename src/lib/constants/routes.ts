@@ -85,6 +85,7 @@ export const ROUTES = {
     OPPORTUNITIES: '/admin/opportunities',
     MASTERCLASSES: '/admin/masterclasses',
     ANALYTICS: '/admin/analytics',
+    MODERATION: '/admin/moderation',
     PROFILE: '/admin/profile',
   },
 } as const;

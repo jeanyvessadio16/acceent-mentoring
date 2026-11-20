@@ -25,7 +25,7 @@ export default async function BeneficiarySpaceLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-background text-foreground flex">
       {/* Sidebar Desktop fixe */}
       <BeneficiarySidebar
         user={data?.user}
@@ -39,7 +39,10 @@ export default async function BeneficiarySpaceLayout({
           user={data?.user}
           hasCompletedDiagnosis={data?.hasCompletedDiagnosis ?? false}
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
+        <main
+          data-dashboard-surface
+          className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6"
+        >
           {children}
         </main>
       </div>

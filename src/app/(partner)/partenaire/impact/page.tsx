@@ -5,6 +5,8 @@ import { getPartnerWorkspaceDataAction } from "@/lib/actions/workspace";
 import { DemographicDistributionCard } from "@/features/administration";
 import { ROUTES } from "@/lib/constants";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Impact & Indicateurs | Espace Partenaire ACCEENT Mentoring",
   description: "Indicateurs réels d'impact, inclusion démographique et insertion.",

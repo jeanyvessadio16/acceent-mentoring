@@ -48,6 +48,11 @@ export default async function MentorSpaceLayout({
       icon: "calendar",
     },
     {
+      label: "Messagerie",
+      href: ROUTES.MENTOR.MESSAGES,
+      icon: "message-square",
+    },
+    {
       label: "Ma Candidature",
       href: ROUTES.MENTOR.APPLICATION,
       icon: "clock",

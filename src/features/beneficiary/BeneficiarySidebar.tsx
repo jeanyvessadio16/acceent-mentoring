@@ -10,6 +10,7 @@ import {
   Briefcase,
   GraduationCap,
   Calendar,
+  MessageSquare,
   Sparkles,
   LogOut,
   User,
@@ -52,6 +53,11 @@ const BENEFICIARY_NAV_ITEMS = [
     label: "Mes Rendez-vous",
     href: ROUTES.BENEFICIARY.SESSIONS,
     icon: Calendar,
+  },
+  {
+    label: "Messagerie",
+    href: ROUTES.BENEFICIARY.MESSAGES,
+    icon: MessageSquare,
   },
   {
     label: "Annuaire Mentors",

@@ -10,6 +10,7 @@ import {
   Briefcase,
   GraduationCap,
   BarChart3,
+  ShieldAlert,
   LogOut,
   ChevronRight,
   User,
@@ -57,6 +58,11 @@ const ADMIN_NAV_ITEMS = [
     label: "Mesure d'impact",
     href: ROUTES.ADMIN.ANALYTICS,
     icon: BarChart3,
+  },
+  {
+    label: "Modération & Matching",
+    href: ROUTES.ADMIN.MODERATION,
+    icon: ShieldAlert,
   },
   {
     label: "Mon Profil",

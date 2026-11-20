@@ -5,6 +5,8 @@ import { getCurrentUserProfile } from "@/lib/actions/profile";
 import { UserProfileEditor } from "@/features/profiles";
 import { ROUTES } from "@/lib/constants";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Mon Profil Mentor | ACCEENT Mentoring",
   description: "Accédez, modifiez et complétez votre profil mentor et vos expertises sans quitter votre espace.",

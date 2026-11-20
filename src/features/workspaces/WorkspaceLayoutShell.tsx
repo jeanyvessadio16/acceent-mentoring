@@ -17,6 +17,7 @@ import {
   Award,
   Handshake,
   Users,
+  MessageSquare,
   LogOut,
   Menu,
   ChevronRight,
@@ -24,6 +25,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/lib/actions/auth";
+import { NotificationBell } from "@/features/notifications/NotificationBell";
+import { ThemeToggle } from "@/components/theme";
 
 export type WorkspaceIconKey =
   | "dashboard"
@@ -37,7 +40,8 @@ export type WorkspaceIconKey =
   | "bar-chart"
   | "award"
   | "handshake"
-  | "users";
+  | "users"
+  | "message-square";
 
 const ICON_MAP: Record<WorkspaceIconKey, LucideIcon> = {
   dashboard: LayoutDashboard,
@@ -52,6 +56,7 @@ const ICON_MAP: Record<WorkspaceIconKey, LucideIcon> = {
   award: Award,
   handshake: Handshake,
   users: Users,
+  "message-square": MessageSquare,
 };
 
 export interface WorkspaceNavItem {
@@ -272,7 +277,7 @@ export function WorkspaceLayoutShell({
   })();
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-background text-foreground flex">
       {/* Sidebar Desktop fixe */}
       <WorkspaceSidebarContent
         roleLabel={roleLabel}
@@ -286,13 +291,16 @@ export function WorkspaceLayoutShell({
 
       {/* Colonne principale */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white border-b border-border px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+        <header
+          data-dashboard-surface
+          className="h-16 bg-card border-b border-border px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30"
+        >
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Ouvrir le menu de navigation"
-              className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 focus:outline-none"
+              className="md:hidden p-2 rounded-lg text-muted-foreground hover:bg-muted focus:outline-none"
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -309,6 +317,8 @@ export function WorkspaceLayoutShell({
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <NotificationBell />
             <Link
               href={profileHref}
               className="flex items-center gap-2 pl-2 border-l border-border hover:opacity-80 transition-opacity"
@@ -332,7 +342,10 @@ export function WorkspaceLayoutShell({
           </div>
         </header>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6">
+        <main
+          data-dashboard-surface
+          className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl w-full mx-auto space-y-6"
+        >
           {children}
         </main>
       </div>

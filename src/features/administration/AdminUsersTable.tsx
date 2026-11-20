@@ -23,6 +23,15 @@ import {
 import type { RealDatabaseUser } from "@/lib/actions/admin";
 import { updateUserStatusAction } from "@/lib/actions/admin";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+} from "@/components/ui/table";
 
 interface AdminUsersTableProps {
   initialUsers: RealDatabaseUser[];
@@ -509,7 +518,7 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
       </div>
 
       {/* Table principale */}
-      <div className="bg-white rounded-2xl border border-border shadow-xs overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-xs overflow-hidden">
         {filteredUsers.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <div className="mx-auto w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
@@ -523,180 +532,206 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 border-b border-border text-muted-foreground uppercase font-semibold text-[11px] tracking-wider">
-                <tr>
-                  <th className="px-5 py-3.5">Utilisateur</th>
-                  <th className="px-4 py-3.5">Rôle</th>
-                  <th className="px-4 py-3.5">Profil & Inclusion</th>
-                  <th className="px-4 py-3.5">Localisation</th>
-                  <th className="px-4 py-3.5">Statut Compte</th>
-                  <th className="px-4 py-3.5">Date Inscription</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredUsers.map((user) => {
-                  const roleBadge = getRoleBadge(user.role);
-                  const statusBadge = getStatusBadge(user.statutCompte);
-                  const isProcessing = processingId === user.id;
+          <Table className="text-xs">
+            <TableHeader className="bg-muted/50">
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="px-5 py-3.5 text-muted-foreground uppercase font-semibold text-[11px] tracking-wider">
+                  Utilisateur
+                </TableHead>
+                <TableHead className="px-4 py-3.5 text-muted-foreground uppercase font-semibold text-[11px] tracking-wider">
+                  Rôle
+                </TableHead>
+                <TableHead className="px-4 py-3.5 text-muted-foreground uppercase font-semibold text-[11px] tracking-wider">
+                  Profil &amp; Inclusion
+                </TableHead>
+                <TableHead className="px-4 py-3.5 text-muted-foreground uppercase font-semibold text-[11px] tracking-wider">
+                  Localisation
+                </TableHead>
+                <TableHead className="px-4 py-3.5 text-muted-foreground uppercase font-semibold text-[11px] tracking-wider">
+                  Statut Compte
+                </TableHead>
+                <TableHead className="px-4 py-3.5 text-muted-foreground uppercase font-semibold text-[11px] tracking-wider">
+                  Date Inscription
+                </TableHead>
+                <TableHead className="px-4 py-3.5 text-right text-muted-foreground uppercase font-semibold text-[11px] tracking-wider">
+                  Actions
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredUsers.map((user) => {
+                const roleBadge = getRoleBadge(user.role);
+                const statusBadge = getStatusBadge(user.statutCompte);
+                const isProcessing = processingId === user.id;
 
-                  const dateStr = user.createdAt
-                    ? new Date(user.createdAt).toLocaleDateString("fr-FR", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })
-                    : "—";
+                const dateStr = user.createdAt
+                  ? new Date(user.createdAt).toLocaleDateString("fr-FR", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "—";
 
-                  const initials = `${user.prenom?.charAt(0) || ""}${user.nom?.charAt(0) || ""}`.toUpperCase() || "U";
+                const initials =
+                  `${user.prenom?.charAt(0) || ""}${user.nom?.charAt(0) || ""}`.toUpperCase() ||
+                  "U";
 
-                  return (
-                    <tr
-                      key={user.id}
-                      className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
-                      onClick={() => setSelectedUser(user)}
-                    >
-                      {/* Identité */}
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 border border-primary/20">
-                            {initials}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm text-foreground truncate">
-                              {user.prenom} {user.nom}
-                            </p>
-                            <p className="text-muted-foreground flex items-center gap-1 truncate text-[11px]">
-                              <Mail className="h-3 w-3 shrink-0" />
-                              {user.email}
-                            </p>
-                            {user.telephone && (
-                              <p className="text-slate-400 flex items-center gap-1 text-[11px]">
-                                <Phone className="h-3 w-3 shrink-0" />
-                                {user.telephone}
-                              </p>
-                            )}
-                          </div>
+                return (
+                  <TableRow
+                    key={user.id}
+                    data-state={selectedUser?.id === user.id ? "selected" : undefined}
+                    className="group cursor-pointer"
+                    onClick={() => setSelectedUser(user)}
+                  >
+                    {/* Identité */}
+                    <TableCell className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 border border-primary/20">
+                          {initials}
                         </div>
-                      </td>
-
-                      {/* Rôle */}
-                      <td className="px-4 py-3.5">
-                        <span
-                          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${roleBadge.cls}`}
-                        >
-                          {roleBadge.label}
-                        </span>
-                      </td>
-
-                      {/* Profil & Inclusion */}
-                      <td className="px-4 py-3.5 text-muted-foreground space-y-0.5">
-                        <div>
-                          <span>{user.sexe || "Non précisé"}</span>
-                          {user.age ? ` · ${user.age} ans` : ""}
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-foreground truncate">
+                            {user.prenom} {user.nom}
+                          </p>
+                          <p className="text-muted-foreground flex items-center gap-1 truncate text-[11px]">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            {user.email}
+                          </p>
+                          {user.telephone && (
+                            <p className="text-slate-400 flex items-center gap-1 text-[11px]">
+                              <Phone className="h-3 w-3 shrink-0" />
+                              {user.telephone}
+                            </p>
+                          )}
                         </div>
-                        {user.situationHandicap && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
-                            <HeartHandshake className="h-3 w-3" />
-                            SDH (Handicap)
-                          </span>
-                        )}
-                      </td>
+                      </div>
+                    </TableCell>
 
-                      {/* Localisation */}
-                      <td className="px-4 py-3.5 text-muted-foreground">
-                        <span className="flex items-center gap-1 font-medium text-foreground">
-                          <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
-                          {user.pays || "Non renseigné"}
-                        </span>
-                        {user.milieuResidence && (
-                          <span className="text-[11px] text-slate-500 block">
-                            Milieu {user.milieuResidence.toLowerCase()}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Statut Compte */}
-                      <td className="px-4 py-3.5">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusBadge.badgeCls}`}
-                        >
-                          <span className={`h-1.5 w-1.5 rounded-full ${statusBadge.dotCls}`} />
-                          {statusBadge.label}
-                        </span>
-                      </td>
-
-                      {/* Date d'inscription */}
-                      <td className="px-4 py-3.5 text-muted-foreground text-[11px]">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
-                          {dateStr}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td
-                        className="px-4 py-3.5 text-right space-x-1 whitespace-nowrap"
-                        onClick={(e) => e.stopPropagation()}
+                    {/* Rôle */}
+                    <TableCell className="px-4 py-3.5">
+                      <span
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${roleBadge.cls}`}
                       >
+                        {roleBadge.label}
+                      </span>
+                    </TableCell>
+
+                    {/* Profil & Inclusion */}
+                    <TableCell className="px-4 py-3.5 text-muted-foreground space-y-0.5">
+                      <div>
+                        <span>{user.sexe || "Non précisé"}</span>
+                        {user.age ? ` · ${user.age} ans` : ""}
+                      </div>
+                      {user.situationHandicap && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-semibold">
+                          <HeartHandshake className="h-3 w-3" />
+                          SDH (Handicap)
+                        </span>
+                      )}
+                    </TableCell>
+
+                    {/* Localisation */}
+                    <TableCell className="px-4 py-3.5 text-muted-foreground">
+                      <span className="flex items-center gap-1 font-medium text-foreground">
+                        <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
+                        {user.pays || "Non renseigné"}
+                      </span>
+                      {user.milieuResidence && (
+                        <span className="text-[11px] text-slate-500 block">
+                          Milieu {user.milieuResidence.toLowerCase()}
+                        </span>
+                      )}
+                    </TableCell>
+
+                    {/* Statut Compte */}
+                    <TableCell className="px-4 py-3.5">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusBadge.badgeCls}`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${statusBadge.dotCls}`}
+                        />
+                        {statusBadge.label}
+                      </span>
+                    </TableCell>
+
+                    {/* Date d'inscription */}
+                    <TableCell className="px-4 py-3.5 text-muted-foreground text-[11px]">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
+                        {dateStr}
+                      </span>
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell
+                      className="px-4 py-3.5 text-right space-x-1 whitespace-nowrap"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setSelectedUser(user)}
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1" />
+                        Détails
+                      </Button>
+
+                      {user.statutCompte === "PENDING" && (
                         <Button
-                          variant="ghost"
                           size="sm"
-                          className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => setSelectedUser(user)}
+                          disabled={isProcessing}
+                          onClick={() => handleStatusChange(user.id, "approved")}
+                          className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
                         >
-                          <Eye className="h-3.5 w-3.5 mr-1" />
-                          Détails
+                          {isProcessing ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
+                          Approuver
                         </Button>
+                      )}
 
-                        {user.statutCompte === "PENDING" && (
-                          <Button
-                            size="sm"
-                            disabled={isProcessing}
-                            onClick={() => handleStatusChange(user.id, "approved")}
-                            className="h-8 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-                          >
-                            {isProcessing ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Check className="h-3.5 w-3.5" />
-                            )}
-                            Approuver
-                          </Button>
-                        )}
+                      {user.statutCompte === "ACTIVE" && user.role !== "ADMIN" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isProcessing}
+                          onClick={() => handleStatusChange(user.id, "suspended")}
+                          className="h-8 px-2 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                        >
+                          Suspendre
+                        </Button>
+                      )}
 
-                        {user.statutCompte === "ACTIVE" && user.role !== "ADMIN" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isProcessing}
-                            onClick={() => handleStatusChange(user.id, "suspended")}
-                            className="h-8 px-2 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
-                          >
-                            Suspendre
-                          </Button>
-                        )}
-
-                        {user.statutCompte === "SUSPENDED" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isProcessing}
-                            onClick={() => handleStatusChange(user.id, "active")}
-                            className="h-8 px-2 text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                          >
-                            Réactiver
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      {user.statutCompte === "SUSPENDED" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isProcessing}
+                          onClick={() => handleStatusChange(user.id, "active")}
+                          className="h-8 px-2 text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                        >
+                          Réactiver
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+            <TableFooter>
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={7} className="px-5 py-3 text-xs text-muted-foreground">
+                  Total affiché :{" "}
+                  <strong className="text-foreground">{filteredUsers.length}</strong> /{" "}
+                  <strong className="text-foreground">{users.length}</strong> utilisateur(s)
+                </TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
         )}
       </div>
 

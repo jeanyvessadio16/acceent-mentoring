@@ -16,6 +16,8 @@ import { getMentorWorkspaceDataAction } from "@/lib/actions/workspace";
 import { ROUTES } from "@/lib/constants";
 import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Tableau de Bord Mentor | ACCEENT Mentoring",
   description: "Gérez vos mentorés, vos demandes entrantes et vos sessions d'accompagnement.",

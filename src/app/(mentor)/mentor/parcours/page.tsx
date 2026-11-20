@@ -1,97 +1,64 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { Sparkles, Mail } from "lucide-react";
-import { getMentorWorkspaceDataAction } from "@/lib/actions/workspace";
+import Link from "next/link";
+import { ArrowLeft, Calendar } from "lucide-react";
+
+import {
+  getMentorshipProgramDetailAction,
+  listMentorshipProgramsAction,
+} from "@/lib/actions/mentoring";
+import { ProgramWorkspaceClient } from "@/features/mentoring/ProgramWorkspaceClient";
 import { ROUTES } from "@/lib/constants";
 
+export const instant = false;
+
 export const metadata: Metadata = {
-  title: "Mes Mentorés & Parcours | Espace Mentor ACCEENT Mentoring",
-  description: "Suivez la progression des parcours de vos bénéficiaires.",
+  title: "Parcours Accompagnés | Espace Mentor ACCEENT",
+  description:
+    "Pilotez les parcours de vos mentorés : objectifs SMART, plans d'action et ressources partagées.",
 };
 
 export default async function MentorParcoursPage() {
-  const data = await getMentorWorkspaceDataAction();
+  const programsRes = await listMentorshipProgramsAction("mentor");
 
-  if (!data) {
-    redirect(ROUTES.AUTH.LOGIN);
-  }
+  const initialDetail =
+    programsRes.data.length > 0
+      ? (await getMentorshipProgramDetailAction(programsRes.data[0].id)).data
+      : null;
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-border pb-4">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-          <Sparkles className="h-6 w-6 text-secondary" />
-          Mes Mentorés &amp; Parcours
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {data.programs.length} parcours de mentoring associé(s) à votre compte.
-        </p>
-      </div>
-
-      {data.programs.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-border p-12 text-center space-y-3 shadow-xs">
-          <div className="mx-auto w-12 h-12 rounded-full bg-secondary/10 text-secondary flex items-center justify-center">
-            <Sparkles className="h-6 w-6" />
-          </div>
-          <h3 className="text-base font-bold text-foreground">
-            Aucun parcours en cours
-          </h3>
-          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            Vos programmes d&apos;accompagnement individuels ou collectifs apparaîtront ici dès leur démarrage.
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <Link
+            href="/dashboard/mentor"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Retour au tableau de bord mentor</span>
+          </Link>
+          <h1 className="text-2xl font-bold text-foreground">
+            Parcours d&apos;accompagnement
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Définissez les objectifs SMART, assignez des actions concrètes et
+            partagez vos ressources avec vos bénéficiaires.
           </p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {data.programs.map((program) => (
-            <div
-              key={program.id}
-              className="bg-white rounded-3xl p-6 border border-border shadow-xs space-y-4"
-            >
-              <div className="flex items-start justify-between gap-2 border-b border-border pb-3">
-                <div>
-                  <h2 className="text-base font-bold text-foreground">{program.titre}</h2>
-                  <p className="text-xs text-muted-foreground">
-                    Mentoré : <strong>{program.menteeName}</strong>
-                  </p>
-                  {program.menteeEmail && (
-                    <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                      <Mail className="h-3 w-3" />
-                      {program.menteeEmail}
-                    </p>
-                  )}
-                </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700">
-                  {program.status}
-                </span>
-              </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground font-medium">Progression</span>
-                  <span className="font-bold text-secondary">{program.progression}%</span>
-                </div>
-                <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                  <div
-                    className="bg-secondary h-full rounded-full"
-                    style={{ width: `${program.progression}%` }}
-                  />
-                </div>
-              </div>
+        <Link
+          href={ROUTES.MENTOR.CALENDAR}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/15 transition-colors self-start sm:self-auto"
+        >
+          <Calendar className="h-3.5 w-3.5" />
+          <span>Agenda &amp; Sessions</span>
+        </Link>
+      </div>
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-muted-foreground">Objectifs</span>
-                  <p className="text-lg font-bold text-foreground">{program.goalsCount}</p>
-                </div>
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="text-muted-foreground">Tâches</span>
-                  <p className="text-lg font-bold text-foreground">{program.tasksCount}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <ProgramWorkspaceClient
+        role="mentor"
+        initialPrograms={programsRes.data}
+        initialDetail={initialDetail}
+      />
     </div>
   );
 }

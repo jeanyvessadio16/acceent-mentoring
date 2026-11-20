@@ -3,6 +3,8 @@ import { Users } from "lucide-react";
 import { getAdminStatsAction, getRealUsersListAction } from "@/lib/actions/admin";
 import { AdminUsersTable } from "@/features/administration";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Gestion des Utilisateurs | Administration ACCEENT Mentoring",
   description: "Annuaire et gestion complète des comptes réels de la plateforme.",

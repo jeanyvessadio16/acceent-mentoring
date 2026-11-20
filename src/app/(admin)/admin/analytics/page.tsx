@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { Download, TrendingUp, CheckCircle2 } from "lucide-react";
+import { TrendingUp, CheckCircle2 } from "lucide-react";
 import { getAdminStatsAction } from "@/lib/actions/admin";
 import { DemographicDistributionCard } from "@/features/administration";
-import { Button } from "@/components/ui/button";
+import { AdminExportControls } from "@/features/administration/AdminExportControls";
+
+export const instant = false;
 
 export const metadata: Metadata = {
   title: "Mesure d'Impact & Analytics | Administration ACCEENT Mentoring",
@@ -24,10 +26,7 @@ export default async function AdminAnalyticsPage() {
           </p>
         </div>
 
-        <Button variant="outline" className="rounded-full text-xs font-semibold h-10 px-4 border-primary/30 text-primary hover:bg-primary/5">
-          <Download className="h-4 w-4 mr-1.5" />
-          Exporter rapport trimestriel (PDF/CSV)
-        </Button>
+        <AdminExportControls />
       </div>
 
       {/* Cartes d'indicateurs de performance clés */}

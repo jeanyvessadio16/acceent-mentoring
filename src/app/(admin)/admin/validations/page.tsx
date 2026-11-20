@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { getPendingValidationsAction } from "@/lib/actions/admin";
 import { PendingValidationsTable } from "@/features/administration";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Modération & Validations | Administration ACCEENT Mentoring",
   description: "File d'attente des dossiers de candidature des mentors et experts.",

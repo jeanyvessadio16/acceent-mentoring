@@ -5,6 +5,8 @@ import { Award, GraduationCap, Calendar, UserCheck, ArrowRight } from "lucide-re
 import { getExpertWorkspaceDataAction } from "@/lib/actions/workspace";
 import { ROUTES } from "@/lib/constants";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Tableau de Bord Expert | ACCEENT Mentoring",
   description: "Accompagnements techniques pointus et masterclasses spécialisées.",

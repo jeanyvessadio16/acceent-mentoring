@@ -5,7 +5,10 @@ import { getDashboardUrl } from "@/lib/utils/auth-redirect";
 import { isNextInternalError } from "@/lib/utils/next-errors";
 import { Navbar } from "./Navbar";
 
-export async function AuthenticatedNavbar() {
+async function resolveNavbarUser(): Promise<{
+  displayName: string;
+  dashboardUrl: string;
+} | null> {
   try {
     const supabase = await createClient();
     const {
@@ -14,7 +17,7 @@ export async function AuthenticatedNavbar() {
     } = await supabase.auth.getUser();
 
     if (authError || !authUser) {
-      return <Navbar currentUser={null} />;
+      return null;
     }
 
     const adminDb = createAdminClient();
@@ -31,19 +34,24 @@ export async function AuthenticatedNavbar() {
       dbUser.statutCompte === "SUSPENDED" ||
       dbUser.statutCompte === "REJECTED"
     ) {
-      return <Navbar currentUser={null} />;
+      return null;
     }
 
     const displayName =
       `${dbUser.prenom || ""} ${dbUser.nom || ""}`.trim() || "Mon espace";
     const dashboardUrl = getDashboardUrl(dbUser.role);
 
-    return <Navbar currentUser={{ displayName, dashboardUrl }} />;
+    return { displayName, dashboardUrl };
   } catch (err) {
     if (isNextInternalError(err)) {
       throw err;
     }
     console.error("Erreur AuthenticatedNavbar :", err);
-    return <Navbar currentUser={null} />;
+    return null;
   }
+}
+
+export async function AuthenticatedNavbar() {
+  const currentUser = await resolveNavbarUser();
+  return <Navbar currentUser={currentUser} />;
 }

@@ -14,6 +14,11 @@ import {
 import { getMentorDetailByIdAction } from "@/lib/actions/beneficiary";
 import { ROUTES } from "@/lib/constants";
 import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
+import { MentorshipRequestButton } from "@/features/mentoring/MentorshipRequestButton";
+import { BookSessionButton } from "@/features/sessions/BookSessionButton";
+import { ReportModalButton } from "@/features/moderation/ReportModalButton";
+
+export const instant = false;
 
 export const metadata: Metadata = {
   title: "Profil Mentor | Espace Bénéficiaire ACCEENT Mentoring",
@@ -191,6 +196,29 @@ export default async function BeneficiaryMentorDetailPage({
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Actions bénéficiaire (F07 Demande, F09 Session, F16 Signalement) */}
+        <div className="pt-5 border-t border-border flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <MentorshipRequestButton
+              mentorId={mentorRecord.userId}
+              mentorName={fullName}
+              isAvailable={mentorRecord.isAvailable}
+            />
+            <BookSessionButton
+              mentorId={mentorRecord.userId}
+              mentorName={fullName}
+              isAvailable={mentorRecord.isAvailable}
+            />
+          </div>
+
+          <ReportModalButton
+            reportedUserId={mentorRecord.userId}
+            targetType="MENTOR"
+            targetId={mentorRecord.id}
+            label="Signaler ce profil"
+          />
         </div>
       </div>
     </div>

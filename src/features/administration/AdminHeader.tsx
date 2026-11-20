@@ -3,12 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  Bell,
   Menu,
   ShieldCheck,
   ExternalLink,
 } from "lucide-react";
 import { AdminSidebar } from "./AdminSidebar";
+import { NotificationBell } from "@/features/notifications/NotificationBell";
+import { ThemeToggle } from "@/components/theme";
 import { ROUTES } from "@/lib/constants";
 import type { CurrentAdminUser } from "@/lib/actions/admin";
 
@@ -22,14 +23,17 @@ export function AdminHeader({ pendingCount = 0, currentUser }: AdminHeaderProps)
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-border px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+      <header
+        data-dashboard-surface
+        className="h-16 bg-card border-b border-border px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30"
+      >
         <div className="flex items-center gap-3">
           {/* Bouton burger mobile */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Ouvrir le menu de navigation"
-            className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 focus:outline-none"
+            className="md:hidden p-2 rounded-lg text-muted-foreground hover:bg-muted focus:outline-none"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -51,25 +55,14 @@ export function AdminHeader({ pendingCount = 0, currentUser }: AdminHeaderProps)
             href={ROUTES.HOME}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-2.5 py-1.5 rounded-lg hover:bg-slate-50"
+            className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-2.5 py-1.5 rounded-lg hover:bg-muted"
           >
             <span>Voir le site public</span>
             <ExternalLink className="h-3 w-3" />
           </Link>
 
-          {/* Cloche de notifications */}
-          <Link
-            href={ROUTES.ADMIN.VALIDATIONS}
-            className="relative p-2 rounded-full text-slate-600 hover:text-primary hover:bg-slate-100 transition-colors"
-            aria-label={`${pendingCount} validations en attente`}
-          >
-            <Bell className="h-5 w-5" />
-            {pendingCount > 0 && (
-              <span className="absolute top-1 right-1 h-4 w-4 bg-accent text-[10px] font-bold text-slate-950 rounded-full flex items-center justify-center animate-pulse">
-                {pendingCount}
-              </span>
-            )}
-          </Link>
+          <ThemeToggle />
+          <NotificationBell />
 
           <Link
             href={ROUTES.ADMIN.PROFILE}

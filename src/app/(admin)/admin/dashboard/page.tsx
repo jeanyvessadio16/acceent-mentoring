@@ -12,6 +12,8 @@ import {
   QuickAdminActions,
 } from "@/features/administration";
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Tableau de Bord Administrateur | ACCEENT Mentoring",
   description: "Vue d'ensemble des indicateurs de performance, validations et suivi d'impact de la plateforme.",
