@@ -2,12 +2,14 @@ export const ACCESS_TOKEN_COOKIE = "acceent_access_token";
 export const REFRESH_TOKEN_COOKIE = "acceent_refresh_token";
 export const DEFAULT_ACCESS_TOKEN_MAX_AGE = 60 * 60; // 1 heure
 export const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 jours
+export const DEFAULT_API_BASE_URL =
+  "https://plateforme-mentoring-api.onrender.com/api/v1";
 
 export function getApiBaseUrlFromEnv(): string {
   const raw =
     process.env.API_URL ||
     process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:3001/api/v1";
+    DEFAULT_API_BASE_URL;
   return raw.replace(/\/+$/, "");
 }
 

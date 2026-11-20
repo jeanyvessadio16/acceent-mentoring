@@ -275,16 +275,18 @@ export async function updateUserFullProfileAction(
     const mentorPatchRes = await apiRequest("/mentors/me", {
       method: "PATCH",
       body: {
-        fonction: data.fonction || "Mentor",
-        organisation: data.organisation || "",
+        fonction: data.fonction?.trim() || undefined,
+        organisation: data.organisation?.trim() || undefined,
         anneesExperience: data.anneesExperience,
-        biographie: data.biographie || "",
+        biographie: data.biographie?.trim() || undefined,
         photoUrl: data.photoUrl || undefined,
         typesMentoring: data.typesMentoring || "INDIVIDUEL",
         linkedinUrl: data.linkedinUrl || undefined,
-        expertises: data.competences,
-        secteurs: data.secteurActivite ? [data.secteurActivite] : [],
-        langues: data.langues,
+        expertises: data.competences.length > 0 ? data.competences : undefined,
+        secteurs: data.secteurActivite?.trim()
+          ? [data.secteurActivite.trim()]
+          : undefined,
+        langues: data.langues.length > 0 ? data.langues : undefined,
       },
     });
 

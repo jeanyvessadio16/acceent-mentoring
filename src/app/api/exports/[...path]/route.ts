@@ -7,7 +7,7 @@ const ALLOWED_EXPORT_PATHS = new Set([
   "admin/exports/impact",
 ]);
 
-const ALLOWED_FORMATS = new Set(["csv", "xlsx", "pdf", "json"]);
+const ALLOWED_ADMIN_EXPORT_FORMATS = new Set(["csv", "xlsx", "pdf"]);
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +33,11 @@ export async function GET(
 
   const format = request.nextUrl.searchParams.get("format");
   const upstreamParams = new URLSearchParams();
-  if (format && ALLOWED_FORMATS.has(format)) {
+  if (
+    joinedPath !== "users/me/export" &&
+    format &&
+    ALLOWED_ADMIN_EXPORT_FORMATS.has(format)
+  ) {
     upstreamParams.set("format", format);
   }
 

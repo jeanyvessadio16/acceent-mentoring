@@ -21,7 +21,9 @@ describe("auth/token-utils", () => {
   it("retourne une URL API normalisée sans slash final", () => {
     delete process.env.API_URL;
     delete process.env.NEXT_PUBLIC_API_URL;
-    expect(getApiBaseUrlFromEnv()).toBe("http://localhost:3001/api/v1");
+    expect(getApiBaseUrlFromEnv()).toBe(
+      "https://plateforme-mentoring-api.onrender.com/api/v1"
+    );
 
     process.env.API_URL = "https://mentoring-api.onrender.com/api/v1///";
     expect(getApiBaseUrlFromEnv()).toBe(

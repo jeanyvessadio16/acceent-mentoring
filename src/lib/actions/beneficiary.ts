@@ -292,7 +292,7 @@ export async function getActiveMentorsCatalogAction(): Promise<
 
   const res = await apiRequest<{ data: MentorApiRow[] }>("/mentors", {
     auth: false,
-    query: { limit: 100 },
+    query: { limit: 50 },
   });
 
   if (!res.ok || !res.data?.data) {
@@ -375,7 +375,7 @@ export async function getBeneficiaryOpportunitiesAction(): Promise<
     "/opportunities",
     {
       auth: false,
-      query: { status: "ACTIVE", limit: 100 },
+      query: { status: "ACTIVE", limit: 50 },
     }
   );
 
@@ -400,7 +400,7 @@ export async function getBeneficiaryMasterclassesAction(): Promise<
     "/masterclasses",
     {
       auth: false,
-      query: { limit: 100 },
+      query: { limit: 50 },
     }
   );
 

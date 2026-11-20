@@ -300,17 +300,41 @@ export async function updateUserStatusAction(
  */
 export async function getRealUsersListAction(
   page = 1,
-  limit = 100
+  limit = 50
 ): Promise<RealDatabaseUser[]> {
-  const res = await apiRequest<{ data: RealDatabaseUser[] }>("/admin/users", {
-    query: { page: Math.max(1, page), limit: Math.min(Math.max(1, limit), 100) },
+  const safePage = Math.max(1, page);
+  const safeLimit = Math.min(Math.max(1, limit), 50);
+
+  const res = await apiRequest<{
+    data: RealDatabaseUser[];
+    meta?: { totalPages?: number };
+  }>("/admin/users", {
+    query: { page: safePage, limit: safeLimit },
   });
 
   if (!res.ok || !res.data?.data) {
     return [];
   }
 
-  return res.data.data;
+  const users = [...res.data.data];
+  const totalPages = Math.min(res.data.meta?.totalPages ?? 1, 10);
+
+  if (page === 1 && totalPages > 1) {
+    const remainingPages = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, index) =>
+        apiRequest<{ data: RealDatabaseUser[] }>("/admin/users", {
+          query: { page: index + 2, limit: safeLimit },
+        })
+      )
+    );
+    for (const pageRes of remainingPages) {
+      if (pageRes.ok && pageRes.data?.data) {
+        users.push(...pageRes.data.data);
+      }
+    }
+  }
+
+  return users;
 }
 
 /**
@@ -355,7 +379,7 @@ export async function getRealOpportunitiesAction(): Promise<
     "/opportunities",
     {
       auth: false,
-      query: { limit: 100 },
+      query: { limit: 50 },
     }
   );
 
@@ -376,7 +400,7 @@ export async function getRealMasterclassesAction(): Promise<
     "/masterclasses",
     {
       auth: false,
-      query: { limit: 100 },
+      query: { limit: 50 },
     }
   );
 

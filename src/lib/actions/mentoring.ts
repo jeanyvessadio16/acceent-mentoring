@@ -188,8 +188,8 @@ export async function searchMentorsApiAction(filter: MentorSearchFilter): Promis
           ? filter.minExperience
           : undefined,
       disponibilite: filter.disponibilite?.trim() || undefined,
-      page: filter.page ?? 1,
-      limit: filter.limit ?? 24,
+      page: Math.max(1, filter.page ?? 1),
+      limit: Math.min(Math.max(1, filter.limit ?? 24), 50),
     },
   });
 

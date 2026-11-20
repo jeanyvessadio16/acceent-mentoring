@@ -31,10 +31,12 @@ describe("api/server-client", () => {
     vi.unstubAllGlobals();
   });
 
-  it("normalise API_URL et utilise http://localhost:3001/api/v1 par défaut", () => {
+  it("normalise API_URL et utilise l'API Render par défaut", () => {
     delete process.env.API_URL;
     delete process.env.NEXT_PUBLIC_API_URL;
-    expect(getApiBaseUrl()).toBe("http://localhost:3001/api/v1");
+    expect(getApiBaseUrl()).toBe(
+      "https://plateforme-mentoring-api.onrender.com/api/v1"
+    );
 
     process.env.API_URL = "https://api.example.com/api/v1///";
     expect(getApiBaseUrl()).toBe("https://api.example.com/api/v1");
