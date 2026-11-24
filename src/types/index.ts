@@ -208,6 +208,23 @@ export interface AdminDashboardStats {
   activePrograms: number;
   completedSessions: number;
   satisfactionRate: number;
+  activeUsers?: number;
+  newUsersLast30Days?: number;
+  completedProfilesCount?: number;
+  activeMentorsCount?: number;
+  totalMatchesCount?: number;
+  totalRequestsCount?: number;
+  pendingRequestsCount?: number;
+  completedProgramsCount?: number;
+  programCompletionRate?: number;
+  totalSessionsCount?: number;
+  averageSatisfactionRating?: number | null;
+  masterclassesCount?: number;
+  masterclassRegistrationsCount?: number;
+  totalOpportunitiesCount?: number;
+  activeOpportunitiesCount?: number;
+  employmentStageOpportunitiesCount?: number;
+  pendingReportsCount?: number;
   demographics: {
     femalePercentage: number;
     malePercentage: number;
@@ -224,7 +241,7 @@ export interface PendingValidationItem {
   firstName: string;
   lastName: string;
   email: string;
-  role: 'mentor' | 'expert';
+  role: 'mentor' | 'expert' | 'partner';
   title: string;
   organization?: string;
   yearsOfExperience: number;
@@ -289,6 +306,18 @@ export interface BeneficiaryDashboardData {
     mentorEmail?: string;
     goalsCount: number;
     tasksCount: number;
+    tasks?: Array<{
+      id: string;
+      titre: string;
+      status: string;
+      echeance?: string | null;
+    }>;
+    resources?: Array<{
+      id: string;
+      titre: string;
+      type: string;
+      url: string;
+    }>;
   } | null;
   upcomingSessions: Array<{
     id: string;
@@ -311,5 +340,23 @@ export interface BeneficiaryDashboardData {
     isAvailable: boolean;
     scoreTotal?: number;
     justification?: string;
+  }>;
+  recommendedOpportunities?: Array<{
+    id: string;
+    titre: string;
+    organisation: string;
+    categorie: string;
+    localisation: string | null;
+    dateExpiration: string;
+    lienCandidature: string;
+  }>;
+  upcomingMasterclasses?: Array<{
+    id: string;
+    titre: string;
+    intervenant: string;
+    categorie: string;
+    dateSession: string;
+    duree: number;
+    statut: string;
   }>;
 }

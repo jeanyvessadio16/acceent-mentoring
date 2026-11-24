@@ -40,6 +40,10 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
     label: "Annulée",
     className: "bg-slate-100 text-slate-600 border-slate-200",
   },
+  COMPLETED: {
+    label: "Terminée",
+    className: "bg-blue-50 text-blue-700 border-blue-200",
+  },
 };
 
 export function MentorRequestsClient({
@@ -126,7 +130,7 @@ export function MentorRequestsClient({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          {(["ALL", "PENDING", "ACCEPTED", "REJECTED"] as const).map(
+          {(["ALL", "PENDING", "ACCEPTED", "COMPLETED", "REJECTED"] as const).map(
             (statusKey) => {
               const count =
                 statusKey === "ALL"
@@ -136,6 +140,7 @@ export function MentorRequestsClient({
                 ALL: "Toutes",
                 PENDING: "En attente",
                 ACCEPTED: "Acceptées",
+                COMPLETED: "Terminées",
                 REJECTED: "Refusées",
               };
               const isSelected = filterStatus === statusKey;

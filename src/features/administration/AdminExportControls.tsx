@@ -37,6 +37,14 @@ export function AdminExportControls() {
         <Download className="h-3.5 w-3.5" />
         <span>Utilisateurs (CSV)</span>
       </a>
+      <a
+        href="/api/exports/admin/exports/users?format=xlsx"
+        download
+        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold border border-secondary/30 text-secondary hover:bg-secondary/5 transition-colors"
+      >
+        <Download className="h-3.5 w-3.5" />
+        <span>Utilisateurs (Excel)</span>
+      </a>
     </div>
   );
 }

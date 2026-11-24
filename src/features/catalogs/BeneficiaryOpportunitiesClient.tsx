@@ -6,10 +6,12 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  Check,
   ExternalLink,
   Heart,
   MapPin,
   Search,
+  Share2,
 } from "lucide-react";
 
 import {
@@ -52,6 +54,7 @@ export function BeneficiaryOpportunitiesClient({
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [locationFilter, setLocationFilter] = useState("");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sharedId, setSharedId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -91,6 +94,29 @@ export function BeneficiaryOpportunitiesClient({
       );
       router.refresh();
     });
+  }
+
+  async function handleShare(opp: OpportunityApiItem) {
+    const shareUrl =
+      sanitizeExternalUrl(opp.lienCandidature) || window.location.href;
+    const shareText = `${opp.titre} — ${opp.organisation} (${opp.categorie})`;
+    try {
+      if (typeof navigator !== "undefined" && navigator.share) {
+        await navigator.share({
+          title: opp.titre,
+          text: shareText,
+          url: shareUrl,
+        });
+      } else if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(`${shareText} : ${shareUrl}`);
+      }
+      setSharedId(opp.id);
+      setTimeout(() => {
+        setSharedId((curr) => (curr === opp.id ? null : curr));
+      }, 2500);
+    } catch {
+      // Ignorer l'annulation utilisateur du partage natif
+    }
   }
 
   return (
@@ -229,7 +255,25 @@ export function BeneficiaryOpportunitiesClient({
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-border/70 flex justify-end">
+                <div className="pt-4 border-t border-border/70 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleShare(opp)}
+                    aria-label={`Partager ${opp.titre}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold border border-border text-foreground hover:bg-slate-50 transition-colors"
+                  >
+                    {sharedId === opp.id ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">Lien copié</span>
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="h-3.5 w-3.5" />
+                        <span>Partager</span>
+                      </>
+                    )}
+                  </button>
                   {safeApplyUrl ? (
                     <a
                       href={safeApplyUrl}

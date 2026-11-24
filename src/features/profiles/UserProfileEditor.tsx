@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   User as UserIcon,
@@ -20,7 +20,7 @@ import {
   Camera,
   Upload,
   Trash2,
-  Download,
+  Settings,
 } from "lucide-react";
 import type { UserFullProfile } from "@/lib/actions/profile";
 import {
@@ -28,8 +28,8 @@ import {
   uploadProfilePhotoAction,
   deleteProfilePhotoAction,
   updateMentorAvailabilityAction,
-  deleteMyAccountAction,
 } from "@/lib/actions/profile";
+import { UserSettingsPanel } from "./UserSettingsPanel";
 import {
   MAX_PROFILE_PHOTO_BYTES,
   ALLOWED_PROFILE_PHOTO_MIME_TYPES,
@@ -75,11 +75,29 @@ const SUGGESTED_LANGUAGES = [
   "Diola",
 ];
 
+const SUGGESTED_INTERESTS = [
+  "Tech & Innovation",
+  "Entrepreneuriat",
+  "Impact Social",
+  "Agrobusiness",
+  "Énergie Verte",
+  "Finance",
+];
+
+const SUGGESTED_AUDIENCES = [
+  "Étudiants",
+  "Jeunes diplômés",
+  "Femmes entrepreneures",
+  "Porteurs de projet",
+  "Personnes en reconversion",
+  "PME / Startups",
+];
+
 export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
   const router = useRouter();
   const [profile, setProfile] = useState<UserFullProfile>(initialProfile);
   const [activeTab, setActiveTab] = useState<
-    "identity" | "inclusion" | "career" | "skills" | "mentor"
+    "identity" | "inclusion" | "career" | "skills" | "mentor" | "settings"
   >("identity");
 
   // Upload photo de profil
@@ -121,6 +139,11 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
   );
   const [newCompetenceInput, setNewCompetenceInput] = useState("");
 
+  const [centresInteret, setCentresInteret] = useState<string[]>(
+    profile.centresInteret || []
+  );
+  const [newInterestInput, setNewInterestInput] = useState("");
+
   const [objectifs, setObjectifs] = useState<string[]>(
     profile.objectifs || []
   );
@@ -141,10 +164,28 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
   );
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
 
-  // RGPD Suppression de compte
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  useEffect(() => {
+    let active = true;
+    Promise.resolve().then(() => {
+      if (!active || typeof window === "undefined") {
+        return;
+      }
+      const tabParam = new URLSearchParams(window.location.search).get("tab");
+      if (
+        tabParam === "identity" ||
+        tabParam === "inclusion" ||
+        tabParam === "career" ||
+        tabParam === "skills" ||
+        tabParam === "settings" ||
+        (tabParam === "mentor" && isMentorOrExpert)
+      ) {
+        setActiveTab(tabParam);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [isMentorOrExpert]);
   const [fonction, setFonction] = useState(
     profile.mentorProfile?.fonction || ""
   );
@@ -164,6 +205,24 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
   );
   const [linkedinUrl, setLinkedinUrl] = useState(
     profile.mentorProfile?.linkedinUrl || ""
+  );
+  const [mentorExpertises, setMentorExpertises] = useState<string[]>(
+    profile.mentorProfile?.expertises || []
+  );
+  const [newMentorExpertise, setNewMentorExpertise] = useState("");
+  const [mentorSecteurs, setMentorSecteurs] = useState<string[]>(
+    profile.mentorProfile?.secteurs || []
+  );
+  const [newMentorSecteur, setNewMentorSecteur] = useState("");
+  const [mentorPublicsAccompagnes, setMentorPublicsAccompagnes] = useState<string[]>(
+    profile.mentorProfile?.publicsAccompagnes || []
+  );
+  const [newMentorAudience, setNewMentorAudience] = useState("");
+  const [mentorDisponibilites, setMentorDisponibilites] = useState(
+    profile.mentorProfile?.disponibilites || ""
+  );
+  const [mentorReferences, setMentorReferences] = useState(
+    profile.mentorProfile?.references || ""
   );
 
   // Transition & Feedback
@@ -319,7 +378,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
       secteurActivite,
       anneesExperience: Number(anneesExperience),
       competences,
-      centresInteret: profile.centresInteret || [],
+      centresInteret,
       objectifs,
       langues,
       disponibilite,
@@ -329,6 +388,15 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
       biographie,
       typesMentoring,
       linkedinUrl,
+      ...(isMentorOrExpert
+        ? {
+            mentorExpertises,
+            mentorSecteurs,
+            mentorPublicsAccompagnes,
+            mentorDisponibilites,
+            mentorReferences,
+          }
+        : {}),
     };
 
     startTransition(async () => {
@@ -407,35 +475,6 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
       });
     } finally {
       setIsTogglingAvailability(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (deleteConfirmText.trim().toUpperCase() !== "SUPPRIMER") {
-      setFeedback({
-        type: "error",
-        message: "Veuillez saisir SUPPRIMER pour confirmer la suppression.",
-      });
-      return;
-    }
-
-    setIsDeletingAccount(true);
-    setFeedback(null);
-    try {
-      const res = await deleteMyAccountAction();
-      if (res.success) {
-        router.push("/");
-        router.refresh();
-      } else {
-        setFeedback({ type: "error", message: res.message });
-      }
-    } catch {
-      setFeedback({
-        type: "error",
-        message: "Une erreur est survenue lors de la suppression du compte.",
-      });
-    } finally {
-      setIsDeletingAccount(false);
     }
   };
 
@@ -589,77 +628,104 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
         }}
       />
 
-      {/* FORMULAIRE PRINCIPAL AVEC ONGLETS */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Navigation des onglets */}
-        <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+      {/* Navigation des onglets */}
+      <div className="flex flex-wrap gap-2 border-b border-border pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("identity")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            activeTab === "identity"
+              ? "bg-primary text-white shadow-xs"
+              : "bg-card text-muted-foreground hover:text-foreground border border-border"
+          }`}
+        >
+          <UserIcon className="h-3.5 w-3.5" />
+          Identité & Coordonnées
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("inclusion")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            activeTab === "inclusion"
+              ? "bg-primary text-white shadow-xs"
+              : "bg-card text-muted-foreground hover:text-foreground border border-border"
+          }`}
+        >
+          <HeartHandshake className="h-3.5 w-3.5" />
+          Démographie & Inclusion
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("career")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            activeTab === "career"
+              ? "bg-primary text-white shadow-xs"
+              : "bg-card text-muted-foreground hover:text-foreground border border-border"
+          }`}
+        >
+          <GraduationCap className="h-3.5 w-3.5" />
+          Formation & Métier
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("skills")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            activeTab === "skills"
+              ? "bg-primary text-white shadow-xs"
+              : "bg-card text-muted-foreground hover:text-foreground border border-border"
+          }`}
+        >
+          <Target className="h-3.5 w-3.5" />
+          Compétences & Objectifs
+        </button>
+
+        {isMentorOrExpert && (
           <button
             type="button"
-            onClick={() => setActiveTab("identity")}
+            onClick={() => setActiveTab("mentor")}
             className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === "identity"
+              activeTab === "mentor"
                 ? "bg-primary text-white shadow-xs"
-                : "bg-white text-muted-foreground hover:text-foreground border border-border"
+                : "bg-card text-muted-foreground hover:text-foreground border border-border"
             }`}
           >
-            <UserIcon className="h-3.5 w-3.5" />
-            Identité & Coordonnées
+            <Award className="h-3.5 w-3.5" />
+            Profil Mentorat
           </button>
+        )}
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("inclusion")}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === "inclusion"
-                ? "bg-primary text-white shadow-xs"
-                : "bg-white text-muted-foreground hover:text-foreground border border-border"
-            }`}
-          >
-            <HeartHandshake className="h-3.5 w-3.5" />
-            Démographie & Inclusion
-          </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("settings")}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            activeTab === "settings"
+              ? "bg-primary text-white shadow-xs"
+              : "bg-card text-muted-foreground hover:text-foreground border border-border"
+          }`}
+        >
+          <Settings className="h-3.5 w-3.5" />
+          Paramètres & Sécurité
+        </button>
+      </div>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("career")}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === "career"
-                ? "bg-primary text-white shadow-xs"
-                : "bg-white text-muted-foreground hover:text-foreground border border-border"
-            }`}
-          >
-            <GraduationCap className="h-3.5 w-3.5" />
-            Formation & Métier
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("skills")}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-              activeTab === "skills"
-                ? "bg-primary text-white shadow-xs"
-                : "bg-white text-muted-foreground hover:text-foreground border border-border"
-            }`}
-          >
-            <Target className="h-3.5 w-3.5" />
-            Compétences & Objectifs
-          </button>
-
-          {isMentorOrExpert && (
-            <button
-              type="button"
-              onClick={() => setActiveTab("mentor")}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 ${
-                activeTab === "mentor"
-                  ? "bg-primary text-white shadow-xs"
-                  : "bg-white text-muted-foreground hover:text-foreground border border-border"
-              }`}
-            >
-              <Award className="h-3.5 w-3.5" />
-              Profil Mentorat
-            </button>
-          )}
-        </div>
+      {activeTab === "settings" ? (
+        <UserSettingsPanel
+          profile={profile}
+          isPublic={isPublic}
+          onPrivacyChange={(nextIsPublic) => {
+            setIsPublic(nextIsPublic);
+            setProfile((prev) => ({ ...prev, isPublic: nextIsPublic }));
+          }}
+          isMentorOrExpert={isMentorOrExpert}
+          mentorAvailable={mentorAvailable}
+          isTogglingAvailability={isTogglingAvailability}
+          onToggleMentorAvailability={handleToggleMentorAvailability}
+        />
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
 
         {/* SECTION 1 : IDENTITÉ & COORDONNÉES */}
         {activeTab === "identity" && (
@@ -850,92 +916,6 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                       Formats acceptés : JPG ou PNG · Taille maximale : 5 Mo
                     </p>
                   </div>
-                </div>
-              </div>
-
-              {/* Confidentialité & RGPD (F02) */}
-              <div className="sm:col-span-2 pt-4 border-t border-border space-y-4">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="font-semibold text-foreground block">
-                      Profil visible dans la communauté (F02)
-                    </span>
-                    <span className="text-[11px] text-muted-foreground block mt-0.5">
-                      Choisissez si vos informations générales de profil peuvent être consultées publiquement.
-                    </span>
-                  </div>
-                  <label className="relative inline-flex items-center gap-2 cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={isPublic}
-                      onChange={(e) => setIsPublic(e.target.checked)}
-                      className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                    />
-                    <span className="text-xs font-semibold text-foreground">
-                      {isPublic ? "Public" : "Privé"}
-                    </span>
-                  </label>
-                </div>
-
-                <div className="p-4 rounded-2xl border border-border bg-white space-y-3">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-primary" />
-                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wide">
-                      Mes droits RGPD &amp; Données personnelles
-                    </h4>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Conformément au RGPD, vous pouvez exporter l&apos;ensemble de vos données au format JSON ou supprimer définitivement votre compte.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <a
-                      href="/api/exports/users/me/export"
-                      download="acceent-mes-donnees-rgpd.json"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-primary/30 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      <span>Télécharger mes données (JSON)</span>
-                    </a>
-
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowDeleteConfirm((prev) => !prev)}
-                      className="text-xs text-destructive hover:text-destructive hover:bg-destructive/10 rounded-xl h-9 px-3"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                      Supprimer mon compte
-                    </Button>
-                  </div>
-
-                  {showDeleteConfirm && (
-                    <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 space-y-3">
-                      <p className="text-xs font-semibold text-destructive">
-                        Action irréversible : toutes vos données, demandes, parcours et messages seront supprimés.
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                          type="text"
-                          value={deleteConfirmText}
-                          onChange={(e) => setDeleteConfirmText(e.target.value)}
-                          placeholder="Saisissez SUPPRIMER pour confirmer"
-                          className="flex-1 px-3 py-2 rounded-xl border border-destructive/30 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-destructive/20"
-                        />
-                        <Button
-                          type="button"
-                          disabled={isDeletingAccount || deleteConfirmText.trim().toUpperCase() !== "SUPPRIMER"}
-                          onClick={() => void handleDeleteAccount()}
-                          className="bg-destructive hover:bg-destructive/90 text-white text-xs font-semibold rounded-xl h-9 px-4"
-                        >
-                          {isDeletingAccount ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                          ) : null}
-                          Confirmer la suppression
-                        </Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -1349,6 +1329,94 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                 )}
               </div>
             </div>
+
+            <hr className="border-border" />
+
+            {/* Centres d'intérêt (F02) */}
+            <div className="space-y-3">
+              <div>
+                <h4 className="font-bold text-sm text-foreground">
+                  Centres d&apos;intérêt
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Ajoutez vos thématiques et centres d&apos;intérêt professionnels.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {centresInteret.map((interest) => (
+                  <span
+                    key={interest}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                  >
+                    {interest}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleRemoveTag(centresInteret, setCentresInteret, interest)
+                      }
+                      className="hover:text-red-600 p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newInterestInput}
+                  onChange={(e) => setNewInterestInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddTag(
+                        centresInteret,
+                        setCentresInteret,
+                        newInterestInput,
+                        () => setNewInterestInput("")
+                      );
+                    }
+                  }}
+                  placeholder="Ajouter un centre d'intérêt..."
+                  className="flex-1 px-3.5 py-2 rounded-xl border border-border text-xs focus:outline-none focus:border-primary"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    handleAddTag(
+                      centresInteret,
+                      setCentresInteret,
+                      newInterestInput,
+                      () => setNewInterestInput("")
+                    )
+                  }
+                  className="text-xs gap-1"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Ajouter
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+                <span className="text-slate-400 font-medium">Suggestions :</span>
+                {SUGGESTED_INTERESTS.filter((i) => !centresInteret.includes(i)).map(
+                  (i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setCentresInteret([...centresInteret, i])}
+                      className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
+                    >
+                      + {i}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -1459,6 +1527,245 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y"
                 />
               </div>
+
+              {/* Expertises du mentor */}
+              <div className="sm:col-span-2 space-y-2 pt-2 border-t border-border/70">
+                <label className="font-semibold text-foreground block">
+                  Domaines d&apos;expertise (F03)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {mentorExpertises.map((exp) => (
+                    <span
+                      key={exp}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20"
+                    >
+                      {exp}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleRemoveTag(mentorExpertises, setMentorExpertises, exp)
+                        }
+                        className="hover:text-red-600 p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMentorExpertise}
+                    onChange={(e) => setNewMentorExpertise(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddTag(
+                          mentorExpertises,
+                          setMentorExpertises,
+                          newMentorExpertise,
+                          () => setNewMentorExpertise("")
+                        );
+                      }
+                    }}
+                    placeholder="Ajouter une expertise mentor..."
+                    className="flex-1 px-3.5 py-2 rounded-xl border border-border text-xs focus:outline-none focus:border-primary"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleAddTag(
+                        mentorExpertises,
+                        setMentorExpertises,
+                        newMentorExpertise,
+                        () => setNewMentorExpertise("")
+                      )
+                    }
+                    className="text-xs gap-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Ajouter
+                  </Button>
+                </div>
+              </div>
+
+              {/* Secteurs accompagnés */}
+              <div className="sm:col-span-2 space-y-2">
+                <label className="font-semibold text-foreground block">
+                  Secteurs d&apos;activité mentorés (F03)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {mentorSecteurs.map((sec) => (
+                    <span
+                      key={sec}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-secondary/10 text-secondary border border-secondary/20"
+                    >
+                      {sec}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleRemoveTag(mentorSecteurs, setMentorSecteurs, sec)
+                        }
+                        className="hover:text-red-600 p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMentorSecteur}
+                    onChange={(e) => setNewMentorSecteur(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddTag(
+                          mentorSecteurs,
+                          setMentorSecteurs,
+                          newMentorSecteur,
+                          () => setNewMentorSecteur("")
+                        );
+                      }
+                    }}
+                    placeholder="Ajouter un secteur..."
+                    className="flex-1 px-3.5 py-2 rounded-xl border border-border text-xs focus:outline-none focus:border-primary"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleAddTag(
+                        mentorSecteurs,
+                        setMentorSecteurs,
+                        newMentorSecteur,
+                        () => setNewMentorSecteur("")
+                      )
+                    }
+                    className="text-xs gap-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Ajouter
+                  </Button>
+                </div>
+              </div>
+
+              {/* Publics accompagnés */}
+              <div className="sm:col-span-2 space-y-2">
+                <label className="font-semibold text-foreground block">
+                  Publics accompagnés
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {mentorPublicsAccompagnes.map((pub) => (
+                    <span
+                      key={pub}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 border border-slate-200"
+                    >
+                      {pub}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleRemoveTag(
+                            mentorPublicsAccompagnes,
+                            setMentorPublicsAccompagnes,
+                            pub
+                          )
+                        }
+                        className="hover:text-red-600 p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newMentorAudience}
+                    onChange={(e) => setNewMentorAudience(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddTag(
+                          mentorPublicsAccompagnes,
+                          setMentorPublicsAccompagnes,
+                          newMentorAudience,
+                          () => setNewMentorAudience("")
+                        );
+                      }
+                    }}
+                    placeholder="Ex: Femmes entrepreneures, Étudiants..."
+                    className="flex-1 px-3.5 py-2 rounded-xl border border-border text-xs focus:outline-none focus:border-primary"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      handleAddTag(
+                        mentorPublicsAccompagnes,
+                        setMentorPublicsAccompagnes,
+                        newMentorAudience,
+                        () => setNewMentorAudience("")
+                      )
+                    }
+                    className="text-xs gap-1"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Ajouter
+                  </Button>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
+                  <span className="text-slate-400 font-medium">Suggestions :</span>
+                  {SUGGESTED_AUDIENCES.filter(
+                    (a) => !mentorPublicsAccompagnes.includes(a)
+                  ).map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() =>
+                        setMentorPublicsAccompagnes([
+                          ...mentorPublicsAccompagnes,
+                          a,
+                        ])
+                      }
+                      className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium transition-colors"
+                    >
+                      + {a}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-foreground block mb-1.5">
+                  Créneaux de disponibilité déclarés
+                </label>
+                <input
+                  type="text"
+                  value={mentorDisponibilites}
+                  onChange={(e) => setMentorDisponibilites(e.target.value)}
+                  placeholder="Ex: Soir en semaine et samedi matin"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-foreground block mb-1.5">
+                  Références professionnelles
+                </label>
+                <input
+                  type="text"
+                  value={mentorReferences}
+                  onChange={(e) => setMentorReferences(e.target.value)}
+                  placeholder="Ex: Mentor Programme YALI, Jury Hackathon..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1488,6 +1795,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
           </Button>
         </div>
       </form>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   AdminStatsGrid,
   DemographicDistributionCard,
   PendingValidationsTable,
+  PlatformAnalyticsCharts,
   RecentActivityFeed,
   QuickAdminActions,
 } from "@/features/administration";
@@ -50,6 +51,9 @@ export default async function AdminDashboardPage() {
 
       {/* Grille des 4 KPIs principaux */}
       <AdminStatsGrid stats={stats} />
+
+      {/* Synthèse graphique Recharts */}
+      <PlatformAnalyticsCharts stats={stats} variant="compact" />
 
       {/* Carte d'Inclusion & Diversité (Parité, Ruralité, SDH, Âge) */}
       <DemographicDistributionCard demographics={stats.demographics} />

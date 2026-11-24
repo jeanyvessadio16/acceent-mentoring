@@ -8,6 +8,7 @@ import {
   loginSchema,
   forgotPasswordSchema,
   registerSchema,
+  changePasswordSchema,
 } from "@/lib/schemas/auth";
 import { ROUTES } from "@/lib/constants";
 import { validateCvPdfBuffer } from "@/lib/utils/cv-upload";
@@ -207,7 +208,7 @@ export async function registerAction(
       telephone: data.phone || undefined,
       pays: data.country || "Sénégal",
       role: normalizedRole,
-      langue: "fr",
+      langue: data.langue || "fr",
       consentCgu: Boolean(data.acceptTerms),
       consentData: Boolean(data.acceptPrivacy),
       ...(isMentorOrExpert
@@ -339,4 +340,43 @@ export async function signOutAction() {
   await clearSessionCookies();
   revalidatePath("/", "layout");
   redirect(ROUTES.HOME);
+}
+
+/**
+ * Met à jour le mot de passe de l'utilisateur connecté via `POST /auth/reset-password`
+ * sans révoquer la session active.
+ */
+export async function changePasswordAction(
+  values: unknown
+): Promise<AuthActionResult> {
+  const parsed = changePasswordSchema.safeParse(values);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error:
+        parsed.error.issues[0]?.message ||
+        "Veuillez vérifier le format du mot de passe saisi.",
+    };
+  }
+
+  const res = await apiRequest<{ message?: string }>("/auth/reset-password", {
+    method: "POST",
+    body: { newPassword: parsed.data.newPassword },
+  });
+
+  if (!res.ok) {
+    return {
+      success: false,
+      error:
+        res.error ||
+        "Impossible de mettre à jour votre mot de passe pour le moment.",
+    };
+  }
+
+  return {
+    success: true,
+    message:
+      res.data?.message ||
+      "Votre mot de passe a été mis à jour avec succès.",
+  };
 }

@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Menu,
-  Sparkles,
   Compass,
 } from "lucide-react";
 import { BeneficiarySidebar } from "./BeneficiarySidebar";
@@ -44,16 +43,6 @@ export function BeneficiaryHeader({
           >
             <Menu className="h-5 w-5" />
           </button>
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-secondary/10 text-secondary">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Espace Accompagnement</span>
-            </span>
-            <span className="hidden sm:inline-block text-xs text-muted-foreground">
-              · Mentorat & Développement des compétences
-            </span>
-          </div>
         </div>
 
         {/* Côté droit */}

@@ -45,6 +45,9 @@ export interface UserFullProfile {
     anneesExperience: number;
     expertises: string[];
     secteurs: string[];
+    publicsAccompagnes: string[];
+    disponibilites: string | null;
+    references: string | null;
     biographie: string;
     typesMentoring: string;
     linkedinUrl: string | null;
@@ -107,6 +110,9 @@ interface UsersMeApiResponse {
     anneesExperience?: number | null;
     expertises?: string[] | null;
     secteurs?: string[] | null;
+    publicsAccompagnes?: string[] | null;
+    disponibilites?: string | null;
+    references?: string | null;
     biographie?: string | null;
     typesMentoring?: string | null;
     linkedinUrl?: string | null;
@@ -199,6 +205,9 @@ export async function getCurrentUserProfile(): Promise<UserFullProfile | null> {
           anneesExperience: rawMentor.anneesExperience || 0,
           expertises: rawMentor.expertises || [],
           secteurs: rawMentor.secteurs || [],
+          publicsAccompagnes: rawMentor.publicsAccompagnes || [],
+          disponibilites: rawMentor.disponibilites || null,
+          references: rawMentor.references || null,
           biographie: rawMentor.biographie || "",
           typesMentoring: rawMentor.typesMentoring || "INDIVIDUEL",
           linkedinUrl: rawMentor.linkedinUrl || null,
@@ -268,10 +277,19 @@ export async function updateUserFullProfileAction(
   }
 
   const role = userPatchRes.data.role;
-  if (
-    (role === "MENTOR" || role === "EXPERT") &&
-    (data.fonction || data.organisation || data.biographie)
-  ) {
+  const hasMentorUpdates =
+    data.fonction ||
+    data.organisation ||
+    data.biographie ||
+    data.mentorExpertises !== undefined ||
+    data.mentorSecteurs !== undefined ||
+    data.mentorPublicsAccompagnes !== undefined ||
+    data.mentorDisponibilites !== undefined ||
+    data.mentorReferences !== undefined ||
+    data.typesMentoring !== undefined ||
+    data.linkedinUrl !== undefined;
+
+  if ((role === "MENTOR" || role === "EXPERT") && hasMentorUpdates) {
     const mentorPatchRes = await apiRequest("/mentors/me", {
       method: "PATCH",
       body: {
@@ -281,11 +299,22 @@ export async function updateUserFullProfileAction(
         biographie: data.biographie?.trim() || undefined,
         photoUrl: data.photoUrl || undefined,
         typesMentoring: data.typesMentoring || "INDIVIDUEL",
-        linkedinUrl: data.linkedinUrl || undefined,
-        expertises: data.competences.length > 0 ? data.competences : undefined,
-        secteurs: data.secteurActivite?.trim()
-          ? [data.secteurActivite.trim()]
-          : undefined,
+        linkedinUrl: data.linkedinUrl?.trim() || undefined,
+        ...(data.mentorExpertises !== undefined
+          ? { expertises: data.mentorExpertises }
+          : {}),
+        ...(data.mentorSecteurs !== undefined
+          ? { secteurs: data.mentorSecteurs }
+          : {}),
+        ...(data.mentorPublicsAccompagnes !== undefined
+          ? { publicsAccompagnes: data.mentorPublicsAccompagnes }
+          : {}),
+        ...(data.mentorDisponibilites !== undefined
+          ? { disponibilites: data.mentorDisponibilites.trim() || undefined }
+          : {}),
+        ...(data.mentorReferences !== undefined
+          ? { references: data.mentorReferences.trim() || undefined }
+          : {}),
         langues: data.langues.length > 0 ? data.langues : undefined,
       },
     });
@@ -463,5 +492,41 @@ export async function deleteMyAccountAction(): Promise<{
     message:
       res.data?.message ||
       "Votre compte et vos données personnelles ont été supprimés.",
+  };
+}
+
+/**
+ * Server Action : Met à jour la visibilité publique du profil (`PATCH /users/me`)
+ */
+export async function updateAccountPrivacyAction(isPublic: boolean): Promise<{
+  success: boolean;
+  isPublic?: boolean;
+  message: string;
+}> {
+  const res = await apiRequest<{ profile?: { isPublic?: boolean } }>(
+    "/users/me",
+    {
+      method: "PATCH",
+      body: { isPublic },
+    }
+  );
+
+  if (!res.ok) {
+    return {
+      success: false,
+      message:
+        res.error ||
+        "Impossible de mettre à jour la confidentialité de votre profil.",
+    };
+  }
+
+  revalidateAllProfilePaths();
+
+  return {
+    success: true,
+    isPublic: res.data?.profile?.isPublic ?? isPublic,
+    message: isPublic
+      ? "Votre profil est désormais visible dans la communauté."
+      : "Votre profil est désormais privé.",
   };
 }

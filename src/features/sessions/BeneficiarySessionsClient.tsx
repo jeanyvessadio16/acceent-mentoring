@@ -22,6 +22,7 @@ import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SessionsScheduleCalendar } from "./SessionsScheduleCalendar";
 
 interface BeneficiarySessionsClientProps {
   initialSessions: MentorshipSessionApiItem[];
@@ -216,6 +217,26 @@ export function BeneficiarySessionsClient({
           {feedback.text}
         </div>
       )}
+
+      {/* Vue calendrier interactive Schedule-X */}
+      <section className="bg-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 border-b border-border/70 pb-3">
+          <Calendar className="h-5 w-5 text-primary" />
+          <div>
+            <h2 className="text-base font-bold text-foreground">
+              Calendrier de mes sessions
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Consultez vos prochaines séances et votre historique à la semaine ou au mois.
+            </p>
+          </div>
+        </div>
+
+        <SessionsScheduleCalendar
+          sessions={filtered}
+          viewerRole="beneficiary"
+        />
+      </section>
 
       {filtered.length === 0 ? (
         <div className="bg-white rounded-3xl border border-border p-10 text-center space-y-2">

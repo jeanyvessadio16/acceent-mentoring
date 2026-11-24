@@ -6,3 +6,4 @@ export { PendingValidationsTable } from "./PendingValidationsTable";
 export { RecentActivityFeed } from "./RecentActivityFeed";
 export { QuickAdminActions } from "./QuickAdminActions";
 export { AdminUsersTable } from "./AdminUsersTable";
+export { PlatformAnalyticsCharts } from "./PlatformAnalyticsCharts";

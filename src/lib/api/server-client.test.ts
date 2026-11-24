@@ -2,12 +2,17 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { mockGetSessionTokens, mockSetSessionCookies, mockIsJwtExpired } =
+const { mockGetSessionTokens, mockSetSessionCookies, mockIsJwtExpired, mockIo } =
   vi.hoisted(() => ({
     mockGetSessionTokens: vi.fn(),
     mockSetSessionCookies: vi.fn(),
     mockIsJwtExpired: vi.fn(),
+    mockIo: vi.fn().mockResolvedValue(undefined),
   }));
+
+vi.mock("next/cache", () => ({
+  io: mockIo,
+}));
 
 vi.mock("@/lib/auth/session", () => ({
   getSessionTokens: mockGetSessionTokens,
@@ -23,6 +28,7 @@ describe("api/server-client", () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     vi.clearAllMocks();
+    mockIo.mockResolvedValue(undefined);
     vi.unstubAllGlobals();
   });
 
@@ -183,5 +189,34 @@ describe("api/server-client", () => {
     expect(netRes.ok).toBe(false);
     expect(netRes.status).toBe(503);
     expect(netRes.data).toBeNull();
+  });
+
+  it("appelle io() avant isJwtExpired() et relance les exceptions internes Next.js", async () => {
+    mockGetSessionTokens.mockResolvedValue({
+      accessToken: "jwt-token-xyz",
+      refreshToken: null,
+    });
+    mockIsJwtExpired.mockReturnValue(false);
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ "content-type": "application/json" }),
+      json: async () => ({ id: "u1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const okRes = await apiRequest<{ id: string }>("/auth/me");
+    expect(okRes.ok).toBe(true);
+    expect(mockIo).toHaveBeenCalledTimes(1);
+    expect(mockIo.mock.invocationCallOrder[0]).toBeLessThan(
+      mockIsJwtExpired.mock.invocationCallOrder[0]
+    );
+
+    const nextInternalError = { digest: "HANGING_PROMISE_REJECTION" };
+    mockIo.mockRejectedValueOnce(nextInternalError);
+
+    await expect(apiRequest("/auth/me")).rejects.toBe(nextInternalError);
+    expect(mockIsJwtExpired).toHaveBeenCalledTimes(1);
   });
 });

@@ -12,6 +12,7 @@ interface BeneficiaryWelcomeBannerProps {
 export function BeneficiaryWelcomeBanner({
   user,
   hasCompletedDiagnosis,
+  diagnostic,
 }: BeneficiaryWelcomeBannerProps) {
   return (
     <div className="space-y-4">
@@ -45,6 +46,17 @@ export function BeneficiaryWelcomeBanner({
           <p className="text-sm text-slate-300 leading-relaxed">
             Bienvenue sur votre espace de progression. Trouvez le mentor idéal, suivez vos jalons d&apos;apprentissage et accédez aux opportunités professionnelles.
           </p>
+
+          {hasCompletedDiagnosis && diagnostic?.objectifPrincipal && (
+            <div className="mt-2 p-3.5 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-xs space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">
+                Mon objectif principal{diagnostic.domaine ? ` · ${diagnostic.domaine}` : ""}
+              </p>
+              <p className="text-xs sm:text-sm font-medium text-white">
+                {diagnostic.objectifPrincipal}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

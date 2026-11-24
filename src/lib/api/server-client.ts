@@ -1,4 +1,5 @@
 import "server-only";
+import { io } from "next/cache";
 import {
   getSessionTokens,
   isJwtExpired,
@@ -6,6 +7,7 @@ import {
   type ApiSessionPayload,
 } from "@/lib/auth/session";
 import { getApiBaseUrlFromEnv } from "@/lib/auth/token-utils";
+import { isNextInternalError } from "@/lib/utils/next-errors";
 
 export function getApiBaseUrl(): string {
   return getApiBaseUrlFromEnv();
@@ -47,17 +49,24 @@ async function refreshAccessToken(
 
     try {
       await setSessionCookies(nextSession);
-    } catch {
+    } catch (err) {
+      if (isNextInternalError(err)) {
+        throw err;
+      }
       // Dans un Server Component en lecture seule, la mise à jour de cookie est ignorée.
     }
 
     return nextSession;
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     return null;
   }
 }
 
 export async function getAuthBearerToken(): Promise<string | null> {
+  await io();
   try {
     const { accessToken, refreshToken } = await getSessionTokens();
 
@@ -71,7 +80,10 @@ export async function getAuthBearerToken(): Promise<string | null> {
     }
 
     return null;
-  } catch {
+  } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     return null;
   }
 }
@@ -200,6 +212,9 @@ export async function apiRequest<T>(
       data: parsed as T,
     };
   } catch (err) {
+    if (isNextInternalError(err)) {
+      throw err;
+    }
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     console.error(`Erreur réseau apiRequest (${method} ${normalizedPath}):`, err);
     return {

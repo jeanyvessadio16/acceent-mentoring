@@ -62,7 +62,7 @@ export default async function MentorSpaceLayout({
           : undefined,
     },
     {
-      label: "Mon Profil",
+      label: "Profil & Paramètres",
       href: ROUTES.MENTOR.PROFILE,
       icon: "user",
     },
@@ -72,9 +72,6 @@ export default async function MentorSpaceLayout({
     <WorkspaceLayoutShell
       roleLabel="Mentor"
       roleBadgeClassName="bg-blue-500/20 text-blue-300 border-blue-500/30"
-      headerTitle="Espace Mentor"
-      headerSubtitle="Accompagnement & Transmission"
-      headerIcon="award"
       homeHref={ROUTES.MENTOR.DASHBOARD}
       profileHref={ROUTES.MENTOR.PROFILE}
       navItems={navItems}

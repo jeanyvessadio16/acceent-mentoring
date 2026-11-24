@@ -62,7 +62,7 @@ const ACCOUNT_TYPES = [
     label: "Partenaire",
     description: "Entreprise, bailleur ou institution souhaitant soutenir les talents",
     icon: Handshake,
-    requiresValidation: false,
+    requiresValidation: true,
   },
 ] as const;
 
@@ -133,6 +133,7 @@ export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
       email: "",
       phone: "",
       country: "",
+      langue: "fr",
       password: "",
       confirmPassword: "",
       acceptTerms: false,
@@ -256,6 +257,7 @@ export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
         "sexe",
         "phone",
         "country",
+        "langue",
         "milieuResidence",
         "sdh",
       ]);
@@ -316,6 +318,8 @@ export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
           type: "success",
           message: isValidationRequired
             ? "Compte créé avec succès ! Votre candidature et votre CV ont été transmis pour validation par l'équipe administrative."
+            : selectedAccountType === "partner"
+            ? "Compte partenaire créé avec succès ! Votre accès est soumis à validation administrative."
             : res.message ||
               "Compte créé avec succès ! Un lien de vérification vous a été envoyé par email.",
         });
@@ -676,6 +680,22 @@ export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
                   <p className="text-[11px] text-destructive leading-none">{errors.sdh.message}</p>
                 )}
               </div>
+            </div>
+
+            {/* Ligne 5 : Langue préférée */}
+            <div className="space-y-1">
+              <Label htmlFor="langue" className="text-xs">
+                Langue préférée
+              </Label>
+              <select
+                id="langue"
+                disabled={isSubmitting}
+                className="h-9 rounded-full w-full border border-input bg-card px-3 text-xs outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                {...register("langue")}
+              >
+                <option value="fr">Français</option>
+                <option value="en">English</option>
+              </select>
             </div>
 
             {/* Boutons de navigation Étape 2 */}

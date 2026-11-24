@@ -64,6 +64,10 @@ const REQUEST_STATUS_MAP: Record<string, { label: string; badge: string }> = {
     label: "Annulée",
     badge: "bg-slate-100 text-slate-600 border-slate-200",
   },
+  COMPLETED: {
+    label: "Terminée",
+    badge: "bg-blue-50 text-blue-700 border-blue-200",
+  },
 };
 
 export function ProgramWorkspaceClient({
@@ -83,6 +87,7 @@ export function ProgramWorkspaceClient({
   const [goalTitle, setGoalTitle] = useState("");
   const [goalIndicators, setGoalIndicators] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
+  const [taskGoalId, setTaskGoalId] = useState("");
   const [taskDue, setTaskDue] = useState("");
   const [resourceTitle, setResourceTitle] = useState("");
   const [resourceUrl, setResourceUrl] = useState("");
@@ -213,6 +218,7 @@ export function ProgramWorkspaceClient({
     startTransition(async () => {
       const res = await createProgramTaskAction(selectedDetail.id, {
         titre: taskTitle.trim(),
+        goalId: taskGoalId || undefined,
         echeance: taskDue ? new Date(taskDue).toISOString() : undefined,
       });
       if (!res.ok) {
@@ -223,6 +229,7 @@ export function ProgramWorkspaceClient({
         return;
       }
       setTaskTitle("");
+      setTaskGoalId("");
       setTaskDue("");
       refreshCurrentDetail(selectedDetail.id);
     });
@@ -686,6 +693,13 @@ export function ProgramWorkspaceClient({
                               </p>
                               <p className="text-[11px] text-muted-foreground">
                                 Statut : {task.status}
+                                {task.goalId
+                                  ? ` · Objectif : ${
+                                      selectedDetail.goals.find(
+                                        (g) => g.id === task.goalId
+                                      )?.titre ?? "Lié"
+                                    }`
+                                  : ""}
                                 {task.echeance
                                   ? ` · Échéance : ${new Date(
                                       task.echeance
@@ -694,48 +708,65 @@ export function ProgramWorkspaceClient({
                               </p>
                             </div>
                           </button>
-                          <button
-                            type="button"
-                            disabled={isPending}
-                            onClick={() => handleDeleteTask(task.id)}
-                            aria-label="Supprimer tâche"
-                            className="p-1 text-muted-foreground hover:text-red-600"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {role === "mentor" && (
+                            <button
+                              type="button"
+                              disabled={isPending}
+                              onClick={() => handleDeleteTask(task.id)}
+                              aria-label="Supprimer tâche"
+                              className="p-1 text-muted-foreground hover:text-red-600"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </li>
                       ))}
                     </ul>
                   )}
 
-                  <form
-                    onSubmit={handleAddTask}
-                    className="pt-3 border-t border-border/70 grid grid-cols-1 sm:grid-cols-12 gap-2"
-                  >
-                    <Input
-                      value={taskTitle}
-                      onChange={(e) => setTaskTitle(e.target.value)}
-                      placeholder="Ajouter une action à réaliser..."
-                      className="sm:col-span-7 h-9 rounded-xl text-xs"
-                      required
-                    />
-                    <Input
-                      type="date"
-                      value={taskDue}
-                      onChange={(e) => setTaskDue(e.target.value)}
-                      aria-label="Date d'échéance"
-                      className="sm:col-span-3 h-9 rounded-xl text-xs"
-                    />
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={isPending}
-                      className="sm:col-span-2 rounded-xl h-9 text-xs"
+                  {role === "mentor" && (
+                    <form
+                      onSubmit={handleAddTask}
+                      className="pt-3 border-t border-border/70 grid grid-cols-1 sm:grid-cols-12 gap-2"
                     >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Ajouter
-                    </Button>
-                  </form>
+                      <Input
+                        value={taskTitle}
+                        onChange={(e) => setTaskTitle(e.target.value)}
+                        placeholder="Ajouter une action à réaliser..."
+                        className="sm:col-span-4 h-9 rounded-xl text-xs"
+                        required
+                      />
+                      <select
+                        value={taskGoalId}
+                        onChange={(e) => setTaskGoalId(e.target.value)}
+                        aria-label="Rattacher à un objectif"
+                        className="sm:col-span-3 h-9 rounded-xl border border-input bg-white px-2 text-xs"
+                      >
+                        <option value="">Sans sous-objectif</option>
+                        {selectedDetail.goals.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.titre}
+                          </option>
+                        ))}
+                      </select>
+                      <Input
+                        type="date"
+                        value={taskDue}
+                        onChange={(e) => setTaskDue(e.target.value)}
+                        aria-label="Date d'échéance"
+                        className="sm:col-span-3 h-9 rounded-xl text-xs"
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={isPending}
+                        className="sm:col-span-2 rounded-xl h-9 text-xs"
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Ajouter
+                      </Button>
+                    </form>
+                  )}
                 </section>
 
                 {/* Ressources partagées (F08) */}
@@ -783,15 +814,17 @@ export function ProgramWorkspaceClient({
                                   <ExternalLink className="h-3 w-3" />
                                 </a>
                               )}
-                              <button
-                                type="button"
-                                disabled={isPending}
-                                onClick={() => handleDeleteResource(res.id)}
-                                aria-label="Supprimer ressource"
-                                className="p-1 text-muted-foreground hover:text-red-600"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                              {role === "mentor" && (
+                                <button
+                                  type="button"
+                                  disabled={isPending}
+                                  onClick={() => handleDeleteResource(res.id)}
+                                  aria-label="Supprimer ressource"
+                                  className="p-1 text-muted-foreground hover:text-red-600"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                             </div>
                           </li>
                         );
@@ -799,62 +832,125 @@ export function ProgramWorkspaceClient({
                     </ul>
                   )}
 
-                  <form
-                    onSubmit={handleAddResource}
-                    className="pt-3 border-t border-border/70 grid grid-cols-1 sm:grid-cols-12 gap-2"
-                  >
-                    <div className="sm:col-span-4 space-y-1">
-                      <Label htmlFor="res-title" className="sr-only">
-                        Titre ressource
-                      </Label>
-                      <Input
-                        id="res-title"
-                        value={resourceTitle}
-                        onChange={(e) => setResourceTitle(e.target.value)}
-                        placeholder="Titre de la ressource"
-                        className="h-9 rounded-xl text-xs"
-                        required
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <select
-                        value={resourceType}
-                        onChange={(e) =>
-                          setResourceType(
-                            e.target.value as
-                              | "DOCUMENT"
-                              | "LINK"
-                              | "VIDEO"
-                          )
-                        }
-                        aria-label="Type de ressource"
-                        className="h-9 w-full rounded-xl border border-input bg-white px-2 text-xs"
-                      >
-                        <option value="LINK">Lien</option>
-                        <option value="DOCUMENT">Document</option>
-                        <option value="VIDEO">Vidéo</option>
-                      </select>
-                    </div>
-                    <div className="sm:col-span-4">
-                      <Input
-                        type="url"
-                        value={resourceUrl}
-                        onChange={(e) => setResourceUrl(e.target.value)}
-                        placeholder="https://..."
-                        className="h-9 rounded-xl text-xs"
-                        required
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={isPending}
-                      className="sm:col-span-2 rounded-xl h-9 text-xs"
+                  {role === "mentor" && (
+                    <form
+                      onSubmit={handleAddResource}
+                      className="pt-3 border-t border-border/70 grid grid-cols-1 sm:grid-cols-12 gap-2"
                     >
-                      <Plus className="h-3.5 w-3.5 mr-1" />
-                      Partager
-                    </Button>
-                  </form>
+                      <div className="sm:col-span-4 space-y-1">
+                        <Label htmlFor="res-title" className="sr-only">
+                          Titre ressource
+                        </Label>
+                        <Input
+                          id="res-title"
+                          value={resourceTitle}
+                          onChange={(e) => setResourceTitle(e.target.value)}
+                          placeholder="Titre de la ressource"
+                          className="h-9 rounded-xl text-xs"
+                          required
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <select
+                          value={resourceType}
+                          onChange={(e) =>
+                            setResourceType(
+                              e.target.value as
+                                | "DOCUMENT"
+                                | "LINK"
+                                | "VIDEO"
+                            )
+                          }
+                          aria-label="Type de ressource"
+                          className="h-9 w-full rounded-xl border border-input bg-white px-2 text-xs"
+                        >
+                          <option value="LINK">Lien</option>
+                          <option value="DOCUMENT">Document</option>
+                          <option value="VIDEO">Vidéo</option>
+                        </select>
+                      </div>
+                      <div className="sm:col-span-4">
+                        <Input
+                          type="url"
+                          value={resourceUrl}
+                          onChange={(e) => setResourceUrl(e.target.value)}
+                          placeholder="https://..."
+                          className="h-9 rounded-xl text-xs"
+                          required
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={isPending}
+                        className="sm:col-span-2 rounded-xl h-9 text-xs"
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Partager
+                      </Button>
+                    </form>
+                  )}
+                </section>
+
+                {/* Sessions liées au parcours (F08 / F09) */}
+                <section className="bg-white rounded-3xl border border-border p-6 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-secondary" />
+                      <h3 className="text-base font-bold text-foreground">
+                        Sessions du parcours ({selectedDetail.sessions.length})
+                      </h3>
+                    </div>
+                    <Link
+                      href={
+                        role === "mentee"
+                          ? "/beneficiary/sessions"
+                          : "/mentor/calendar"
+                      }
+                      className="text-xs font-semibold text-secondary hover:underline"
+                    >
+                      Gérer mes sessions
+                    </Link>
+                  </div>
+
+                  {selectedDetail.sessions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Aucune session enregistrée pour ce parcours pour le moment.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {selectedDetail.sessions.map((sess) => {
+                        const safeMeeting = sanitizeExternalUrl(sess.meetingUrl);
+                        return (
+                          <li
+                            key={sess.id}
+                            className="p-3 rounded-2xl border border-border/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                          >
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-semibold text-foreground">
+                                {sess.titre}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {new Date(sess.dateDebut).toLocaleString("fr-FR")} · Statut :{" "}
+                                <span className="font-semibold">{sess.status}</span>
+                              </p>
+                            </div>
+                            {safeMeeting && (
+                              <a
+                                href={safeMeeting}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-secondary/10 text-secondary hover:bg-secondary/15 self-start sm:self-auto"
+                              >
+                                <span>Lien visio</span>
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </section>
               </>
             ) : (

@@ -70,6 +70,11 @@ export const profileUpdateSchema = z.object({
     .or(z.literal(""))
     .optional()
     .default(""),
+  mentorExpertises: z.array(z.string().min(1).max(60)).optional(),
+  mentorSecteurs: z.array(z.string().min(1).max(80)).optional(),
+  mentorPublicsAccompagnes: z.array(z.string().min(1).max(80)).optional(),
+  mentorDisponibilites: z.string().max(150).optional(),
+  mentorReferences: z.string().max(300).optional(),
 });
 
 export type ProfileUpdateFormData = z.infer<typeof profileUpdateSchema>;

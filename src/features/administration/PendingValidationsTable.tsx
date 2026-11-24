@@ -73,7 +73,7 @@ export function PendingValidationsTable({
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
             <h3 className="text-base font-bold text-foreground">
-              Candidatures Mentors & Experts en Attente
+              Validations de comptes en attente
             </h3>
             {items.length > 0 && (
               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-accent/20 text-accent border border-accent/30">
@@ -147,12 +147,19 @@ export function PendingValidationsTable({
                       {item.firstName} {item.lastName}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider ${item.role === "mentor"
-                        ? "bg-primary/10 text-primary border border-primary/20"
-                        : "bg-purple-100 text-purple-700 border border-purple-200"
-                        }`}
+                      className={`px-2 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider ${
+                        item.role === "mentor"
+                          ? "bg-primary/10 text-primary border border-primary/20"
+                          : item.role === "partner"
+                          ? "bg-teal-100 text-teal-800 border border-teal-200"
+                          : "bg-purple-100 text-purple-700 border border-purple-200"
+                      }`}
                     >
-                      {item.role === "mentor" ? "Mentor" : "Expert"}
+                      {item.role === "mentor"
+                        ? "Mentor"
+                        : item.role === "partner"
+                        ? "Partenaire"
+                        : "Expert"}
                     </span>
                     <span className="text-xs text-muted-foreground">· {item.email}</span>
                   </div>
@@ -161,7 +168,9 @@ export function PendingValidationsTable({
                     <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span>
                       {item.title} {item.organization ? `· ${item.organization}` : ""}{" "}
-                      <span className="text-muted-foreground">({item.yearsOfExperience} ans d&apos;exp.)</span>
+                      {item.role !== "partner" && (
+                        <span className="text-muted-foreground">({item.yearsOfExperience} ans d&apos;exp.)</span>
+                      )}
                       {item.mentoringFormat ? (
                         <span className="text-muted-foreground"> · Format : {item.mentoringFormat}</span>
                       ) : null}

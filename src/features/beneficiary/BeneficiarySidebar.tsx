@@ -75,7 +75,7 @@ const BENEFICIARY_NAV_ITEMS = [
     icon: GraduationCap,
   },
   {
-    label: "Mon Profil",
+    label: "Profil & Paramètres",
     href: ROUTES.BENEFICIARY.PROFILE,
     icon: User,
   },

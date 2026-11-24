@@ -81,6 +81,8 @@ export interface MentorWorkspaceData {
   upcomingSessions: WorkspaceSessionItem[];
   completedSessionsCount: number;
   availabilitySlots: MentorAvailabilitySlotItem[];
+  openTasksCount: number;
+  unreadMessagesCount: number;
 }
 
 export interface ExpertMasterclassItem {
@@ -233,6 +235,8 @@ interface MentorDashboardApiResponse {
   }>;
   completedSessionsCount?: number;
   activeSlots?: MentorAvailabilitySlotItem[];
+  openTasksCount?: number;
+  unreadMessagesCount?: number;
 }
 
 interface ExpertDashboardApiResponse {
@@ -396,6 +400,8 @@ export async function getMentorWorkspaceDataAction(): Promise<MentorWorkspaceDat
       d.completedSessionsCount ??
       sessions.filter((s) => s.status === "COMPLETED").length,
     availabilitySlots: d.activeSlots || [],
+    openTasksCount: d.openTasksCount ?? 0,
+    unreadMessagesCount: d.unreadMessagesCount ?? 0,
   };
 }
 

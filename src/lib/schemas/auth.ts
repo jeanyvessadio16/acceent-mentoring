@@ -80,6 +80,7 @@ export const registerSchema = z
       .string()
       .min(1, 'Le pays est requis')
       .regex(REGEX_PATTERNS.COUNTRY, 'Le nom du pays ne doit contenir que des lettres'),
+    langue: z.enum(['fr', 'en']).optional(),
     password: z
       .string()
       .min(8, 'Le mot de passe doit comporter au moins 8 caractères')
@@ -208,3 +209,23 @@ export const forgotPasswordSchema = z.object({
 });
 
 export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
+
+export const changePasswordSchema = z
+  .object({
+    newPassword: z
+      .string()
+      .min(8, 'Le mot de passe doit comporter au moins 8 caractères')
+      .regex(REGEX_PATTERNS.PASSWORD_UPPERCASE, 'Le mot de passe doit inclure au moins une lettre majuscule')
+      .regex(REGEX_PATTERNS.PASSWORD_LOWERCASE, 'Le mot de passe doit inclure au moins une lettre minuscule')
+      .regex(REGEX_PATTERNS.PASSWORD_NUMBER, 'Le mot de passe doit inclure au moins un chiffre')
+      .regex(REGEX_PATTERNS.PASSWORD_SPECIAL, 'Le mot de passe doit inclure au moins un caractère spécial (!@#$%...)'),
+    confirmPassword: z
+      .string()
+      .min(1, 'La confirmation du mot de passe est obligatoire'),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: 'Les mots de passe ne correspondent pas.',
+    path: ['confirmPassword'],
+  });
+
+export type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;

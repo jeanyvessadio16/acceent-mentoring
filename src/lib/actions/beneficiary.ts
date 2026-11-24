@@ -107,7 +107,18 @@ interface BeneficiaryDashboardApiResponse {
       } | null;
     } | null;
     goals?: Array<{ id: string }>;
-    tasks?: Array<{ id: string }>;
+    tasks?: Array<{
+      id: string;
+      titre: string;
+      status: string;
+      echeance?: string | null;
+    }>;
+    resources?: Array<{
+      id: string;
+      titre: string;
+      type: string;
+      url: string;
+    }>;
   }>;
   upcomingSessions?: Array<{
     id: string;
@@ -129,6 +140,24 @@ interface BeneficiaryDashboardApiResponse {
     mentor: DashboardMentorRef | null;
   }>;
   fallbackMentors?: DashboardMentorRef[];
+  recommendedOpportunities?: Array<{
+    id: string;
+    titre: string;
+    organisation: string;
+    categorie: string;
+    localisation?: string | null;
+    dateExpiration: string;
+    lienCandidature: string;
+  }>;
+  upcomingMasterclasses?: Array<{
+    id: string;
+    titre: string;
+    intervenant: string;
+    categorie: string;
+    dateSession: string;
+    duree: number;
+    statut: string;
+  }>;
 }
 
 interface MentorApiRow {
@@ -204,6 +233,18 @@ export async function getBeneficiaryDashboardAction(): Promise<BeneficiaryDashbo
         mentorEmail: firstProgram.mentor?.email || undefined,
         goalsCount: firstProgram.goals?.length || 0,
         tasksCount: firstProgram.tasks?.length || 0,
+        tasks: (firstProgram.tasks || []).map((t) => ({
+          id: t.id,
+          titre: t.titre,
+          status: t.status,
+          echeance: t.echeance ?? null,
+        })),
+        resources: (firstProgram.resources || []).map((r) => ({
+          id: r.id,
+          titre: r.titre,
+          type: r.type,
+          url: sanitizeExternalUrl(r.url) || "",
+        })),
       }
     : null;
 
@@ -277,6 +318,18 @@ export async function getBeneficiaryDashboardAction(): Promise<BeneficiaryDashbo
     activeProgram,
     upcomingSessions,
     recommendedMentors,
+    recommendedOpportunities: (d.recommendedOpportunities || [])
+      .slice(0, 4)
+      .map((o) => ({
+        id: o.id,
+        titre: o.titre,
+        organisation: o.organisation,
+        categorie: o.categorie,
+        localisation: o.localisation ?? null,
+        dateExpiration: o.dateExpiration,
+        lienCandidature: sanitizeExternalUrl(o.lienCandidature) || "",
+      })),
+    upcomingMasterclasses: (d.upcomingMasterclasses || []).slice(0, 4),
   };
 }
 

@@ -82,6 +82,7 @@ export const ROUTES = {
     DASHBOARD: '/admin/dashboard',
     VALIDATIONS: '/admin/validations',
     USERS: '/admin/users',
+    SUPERVISION: '/admin/supervision',
     OPPORTUNITIES: '/admin/opportunities',
     MASTERCLASSES: '/admin/masterclasses',
     ANALYTICS: '/admin/analytics',

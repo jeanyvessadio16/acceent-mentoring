@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { BarChart3 } from "lucide-react";
 import { getPartnerWorkspaceDataAction } from "@/lib/actions/workspace";
-import { DemographicDistributionCard } from "@/features/administration";
+import {
+  DemographicDistributionCard,
+  PlatformAnalyticsCharts,
+} from "@/features/administration";
 import { ROUTES } from "@/lib/constants";
 
 export const instant = false;
@@ -75,6 +78,13 @@ export default async function PartnerImpactPage() {
           <p className="text-xs text-emerald-600 font-semibold">Sessions terminées</p>
         </div>
       </div>
+
+      {/* Graphiques d'impact Recharts */}
+      <PlatformAnalyticsCharts
+        stats={stats}
+        variant="compact"
+        showInclusionChart
+      />
 
       {/* Inclusion démographique réelle */}
       <DemographicDistributionCard demographics={stats.demographics} />

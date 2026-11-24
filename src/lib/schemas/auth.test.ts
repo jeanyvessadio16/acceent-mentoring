@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { loginSchema, registerSchema, REGEX_PATTERNS } from "./auth";
+import {
+  loginSchema,
+  registerSchema,
+  changePasswordSchema,
+  REGEX_PATTERNS,
+} from "./auth";
 import { getDashboardUrl, getRedirectUrl } from "@/lib/utils/auth-redirect";
 
 describe("Validation des Schémas d'Authentification (Auth)", () => {
@@ -202,6 +207,35 @@ describe("Validation des Schémas d'Authentification (Auth)", () => {
     it("redirige experts et partenaires vers leurs tableaux de bord dédiés", () => {
       expect(getRedirectUrl({ role: "EXPERT" })).toBe("/dashboard/expert");
       expect(getRedirectUrl({ role: "PARTENAIRE" })).toBe("/dashboard/partenaire");
+    });
+  });
+
+  describe("changePasswordSchema", () => {
+    it("rejette un mot de passe trop faible", () => {
+      const res = changePasswordSchema.safeParse({
+        newPassword: "weak",
+        confirmPassword: "weak",
+      });
+      expect(res.success).toBe(false);
+    });
+
+    it("rejette des mots de passe qui ne correspondent pas", () => {
+      const res = changePasswordSchema.safeParse({
+        newPassword: "Password123!",
+        confirmPassword: "Password456!",
+      });
+      expect(res.success).toBe(false);
+      if (!res.success) {
+        expect(res.error.issues[0]?.path).toContain("confirmPassword");
+      }
+    });
+
+    it("accepte un mot de passe robuste identique", () => {
+      const res = changePasswordSchema.safeParse({
+        newPassword: "Password123!",
+        confirmPassword: "Password123!",
+      });
+      expect(res.success).toBe(true);
     });
   });
 });

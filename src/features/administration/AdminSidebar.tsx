@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   UserCheck,
   Users,
+  Compass,
   Briefcase,
   GraduationCap,
   BarChart3,
@@ -45,6 +46,11 @@ const ADMIN_NAV_ITEMS = [
     icon: Users,
   },
   {
+    label: "Programmes & Sessions",
+    href: ROUTES.ADMIN.SUPERVISION,
+    icon: Compass,
+  },
+  {
     label: "Opportunités",
     href: ROUTES.ADMIN.OPPORTUNITIES,
     icon: Briefcase,
@@ -65,7 +71,7 @@ const ADMIN_NAV_ITEMS = [
     icon: ShieldAlert,
   },
   {
-    label: "Mon Profil",
+    label: "Profil & Paramètres",
     href: ROUTES.ADMIN.PROFILE,
     icon: User,
   },

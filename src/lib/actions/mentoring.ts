@@ -164,6 +164,84 @@ export interface MentorshipProgramDetailApiItem extends MentorshipProgramApiItem
   sessions: MentorshipProgramSessionSummary[];
 }
 
+export interface MatchingRecommendationApiItem {
+  mentorId: string;
+  mentorProfileId: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  photoUrl: string | null;
+  fonction: string;
+  organisation: string;
+  anneesExperience: number;
+  expertises: string[];
+  secteurs: string[];
+  langues: string[];
+  typesMentoring: string;
+  scoreTotal: number;
+  justification: string;
+}
+
+export async function getMatchingRecommendationsAction(filter?: {
+  minScore?: number;
+  secteur?: string;
+  langue?: string;
+  typesMentoring?: "INDIVIDUEL" | "COLLECTIF" | "LES_DEUX" | "";
+}): Promise<{
+  ok: boolean;
+  data: MatchingRecommendationApiItem[];
+  error?: string;
+}> {
+  const res = await apiRequest<MatchingRecommendationApiItem[]>(
+    "/matching/recommendations",
+    {
+      query: {
+        minScore:
+          typeof filter?.minScore === "number" && filter.minScore > 0
+            ? filter.minScore
+            : undefined,
+        secteur: filter?.secteur?.trim() || undefined,
+        langue: filter?.langue?.trim() || undefined,
+        typesMentoring: filter?.typesMentoring || undefined,
+      },
+    }
+  );
+
+  if (!res.ok || !res.data) {
+    return {
+      ok: false,
+      data: [],
+      error: res.error ?? "Impossible de charger vos recommandations de mentors.",
+    };
+  }
+
+  return { ok: true, data: res.data };
+}
+
+export async function recalculateMatchingAction(): Promise<{
+  ok: boolean;
+  data: MatchingRecommendationApiItem[];
+  error?: string;
+}> {
+  const res = await apiRequest<MatchingRecommendationApiItem[]>(
+    "/matching/recalculate",
+    {
+      method: "POST",
+    }
+  );
+
+  if (!res.ok || !res.data) {
+    return {
+      ok: false,
+      data: [],
+      error: res.error ?? "Impossible de recalculer le matching.",
+    };
+  }
+
+  revalidatePath("/dashboard/beneficiaire");
+  return { ok: true, data: res.data };
+}
+
 export async function searchMentorsApiAction(filter: MentorSearchFilter): Promise<{
   ok: boolean;
   data: MentorSearchResultItem[];

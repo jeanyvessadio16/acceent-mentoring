@@ -3,7 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   Award,
+  CheckSquare,
   Inbox,
+  MessageSquare,
   Sparkles,
   Calendar,
   UserCheck,
@@ -96,8 +98,8 @@ export default async function MentorDashboardPage() {
         </div>
       )}
 
-      {/* KPIs réels */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* KPIs réels (F14) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="p-5 rounded-2xl bg-white border border-border shadow-xs space-y-2">
           <span className="text-xs font-medium text-muted-foreground uppercase">
             Mentorés actifs
@@ -130,90 +132,183 @@ export default async function MentorDashboardPage() {
             {data.pendingRequestsCount}
           </p>
           <p className="text-xs text-amber-700 font-semibold">
-            {data.requests.length} demande(s) reçue(s) au total
+            {data.requests.length} demande(s) reçue(s)
           </p>
         </div>
+
+        <Link
+          href={ROUTES.MENTOR.PARCOURS}
+          className="p-5 rounded-2xl bg-white border border-border shadow-xs space-y-2 hover:border-primary/40 transition-colors"
+        >
+          <span className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1.5">
+            <CheckSquare className="h-3.5 w-3.5 text-primary" />
+            Tâches ouvertes
+          </span>
+          <p className="text-3xl font-extrabold text-foreground">
+            {data.openTasksCount}
+          </p>
+          <p className="text-xs text-primary font-semibold">
+            À suivre dans vos parcours
+          </p>
+        </Link>
+
+        <Link
+          href={ROUTES.MENTOR.MESSAGES}
+          className="p-5 rounded-2xl bg-white border border-border shadow-xs space-y-2 hover:border-secondary/40 transition-colors"
+        >
+          <span className="text-xs font-medium text-muted-foreground uppercase flex items-center gap-1.5">
+            <MessageSquare className="h-3.5 w-3.5 text-secondary" />
+            Messages non lus
+          </span>
+          <p className="text-3xl font-extrabold text-foreground">
+            {data.unreadMessagesCount}
+          </p>
+          <p className="text-xs text-secondary font-semibold">
+            Ouvrir la messagerie
+          </p>
+        </Link>
       </div>
 
-      {/* Prochains rendez-vous + Accès rapides intra-espace */}
+      {/* Suivi & Progression des mentorés + Prochains rendez-vous + Accès rapides */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 p-6 rounded-3xl bg-white border border-border shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <div>
-              <h2 className="text-base font-bold text-foreground">
-                Prochaines sessions planifiées
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Rendez-vous individuels confirmés avec vos mentorés
-              </p>
+        <div className="lg:col-span-2 space-y-6">
+          {/* Suivi des parcours et progressions (F14) */}
+          <div className="p-6 rounded-3xl bg-white border border-border shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h2 className="text-base font-bold text-foreground">
+                  Suivi &amp; Progression de mes mentorés
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  État d&apos;avancement de chaque bénéficiaire accompagné
+                </p>
+              </div>
+              <Link
+                href={ROUTES.MENTOR.PARCOURS}
+                className="text-xs font-semibold text-secondary hover:underline flex items-center gap-1"
+              >
+                <span>Gérer les parcours</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-            <Link
-              href={ROUTES.MENTOR.CALENDAR}
-              className="text-xs font-semibold text-secondary hover:underline flex items-center gap-1"
-            >
-              <span>Voir l&apos;agenda</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
 
-          {data.upcomingSessions.length === 0 ? (
-            <div className="p-8 text-center space-y-2 bg-slate-50/70 rounded-2xl border border-dashed border-slate-200">
-              <Calendar className="h-6 w-6 text-slate-400 mx-auto" />
-              <p className="text-xs font-semibold text-foreground">
-                Aucune session planifiée pour le moment
+            {data.programs.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Aucun mentoré actif pour le moment. Acceptez une demande pour ouvrir un parcours.
               </p>
-              <p className="text-[11px] text-muted-foreground">
-                Vos prochains rendez-vous avec vos bénéficiaires apparaîtront ici.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {data.upcomingSessions.slice(0, 4).map((session) => (
-                <div
-                  key={session.id}
-                  className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                >
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-foreground">{session.titre}</p>
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {session.menteeName}
-                      </span>
-                      <span>·</span>
-                      <span>
-                        {new Date(session.dateDebut).toLocaleDateString("fr-FR", {
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+            ) : (
+              <div className="space-y-3">
+                {data.programs.slice(0, 5).map((program) => (
+                  <Link
+                    key={program.id}
+                    href={ROUTES.MENTOR.PARCOURS}
+                    className="block p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:border-primary/40 transition-colors space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate">
+                          {program.menteeName} · {program.titre}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {program.goalsCount} objectif(s) · {program.tasksCount} tâche(s)
+                        </p>
+                      </div>
+                      <span className="text-xs font-extrabold text-primary shrink-0">
+                        {program.progression}%
                       </span>
                     </div>
-                  </div>
-                  {(() => {
-                    const safeMeetingUrl = sanitizeExternalUrl(session.meetingUrl);
-                    if (!safeMeetingUrl) return null;
-                    return (
-                      <a
-                        href={safeMeetingUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-white bg-secondary hover:bg-secondary/90"
-                      >
-                        <Video className="h-3.5 w-3.5" />
-                        <span>Visio</span>
-                      </a>
-                    );
-                  })()}
-                </div>
-              ))}
+                    <div className="h-2 w-full rounded-full bg-slate-200/70 overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(100, Math.max(0, program.progression))}%`,
+                        }}
+                      />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 rounded-3xl bg-white border border-border shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <h2 className="text-base font-bold text-foreground">
+                  Prochaines sessions planifiées
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Rendez-vous individuels confirmés avec vos mentorés
+                </p>
+              </div>
+              <Link
+                href={ROUTES.MENTOR.CALENDAR}
+                className="text-xs font-semibold text-secondary hover:underline flex items-center gap-1"
+              >
+                <span>Voir l&apos;agenda</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
-          )}
+
+            {data.upcomingSessions.length === 0 ? (
+              <div className="p-8 text-center space-y-2 bg-slate-50/70 rounded-2xl border border-dashed border-slate-200">
+                <Calendar className="h-6 w-6 text-slate-400 mx-auto" />
+                <p className="text-xs font-semibold text-foreground">
+                  Aucune session planifiée pour le moment
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Vos prochains rendez-vous avec vos bénéficiaires apparaîtront ici.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {data.upcomingSessions.slice(0, 4).map((session) => (
+                  <div
+                    key={session.id}
+                    className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-foreground">{session.titre}</p>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {session.menteeName}
+                        </span>
+                        <span>·</span>
+                        <span>
+                          {new Date(session.dateDebut).toLocaleDateString("fr-FR", {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                    {(() => {
+                      const safeMeetingUrl = sanitizeExternalUrl(session.meetingUrl);
+                      if (!safeMeetingUrl) return null;
+                      return (
+                        <a
+                          href={safeMeetingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-white bg-secondary hover:bg-secondary/90"
+                        >
+                          <Video className="h-3.5 w-3.5" />
+                          <span>Visio</span>
+                        </a>
+                      );
+                    })()}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Raccourcis intra-espace */}
-        <div className="p-6 rounded-3xl bg-white border border-border shadow-xs space-y-4">
+        <div className="p-6 rounded-3xl bg-white border border-border shadow-xs space-y-4 self-start">
           <h2 className="text-base font-bold text-foreground border-b border-border pb-3">
             Navigation rapide Mentor
           </h2>
@@ -239,6 +334,13 @@ export default async function MentorDashboardPage() {
                 href: ROUTES.MENTOR.CALENDAR,
                 icon: Calendar,
                 badgeCls: "bg-blue-100 text-blue-700",
+              },
+              {
+                label: "Messagerie directe",
+                desc: `${data.unreadMessagesCount} message(s) non lu(s)`,
+                href: ROUTES.MENTOR.MESSAGES,
+                icon: MessageSquare,
+                badgeCls: "bg-purple-100 text-purple-700",
               },
               {
                 label: "Mon Profil Mentor",

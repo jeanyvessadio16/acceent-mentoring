@@ -29,6 +29,7 @@ import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SessionsScheduleCalendar } from "./SessionsScheduleCalendar";
 
 interface MentorCalendarClientProps {
   initialSlots: AvailabilitySlotApiItem[];
@@ -488,6 +489,26 @@ export function MentorCalendarClient({
             Ajouter
           </Button>
         </form>
+      </section>
+
+      {/* Vue calendrier interactive Schedule-X */}
+      <section className="bg-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
+        <div className="flex items-center gap-2 border-b border-border/70 pb-4">
+          <Calendar className="h-5 w-5 text-primary" />
+          <div>
+            <h2 className="text-base font-bold text-foreground">
+              Vue calendrier de vos sessions
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Visualisez votre planning par jour, semaine ou mois.
+            </p>
+          </div>
+        </div>
+
+        <SessionsScheduleCalendar
+          sessions={filteredSessions}
+          viewerRole="mentor"
+        />
       </section>
 
       {/* Section 2 : Sessions réservées */}

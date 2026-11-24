@@ -17,7 +17,7 @@ test.describe("Navigation et Accessibilité Publique", () => {
 
   test("accès au formulaire d'inscription multi-étapes", async ({ page }) => {
     await page.goto("/register");
-    await expect(page.locator("text=Choisir votre profil")).toBeVisible();
+    await expect(page.locator("text=Choisissez votre profil")).toBeVisible();
     await expect(page.locator("text=Bénéficiaire")).toBeVisible();
   });
 });

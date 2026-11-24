@@ -49,11 +49,13 @@ export function MentorsFilterableCatalog({
   const [expertise, setExpertise] = useState("");
   const [secteur, setSecteur] = useState("");
   const [pays, setPays] = useState("");
+  const [ville, setVille] = useState("");
   const [langue, setLangue] = useState("");
   const [typesMentoring, setTypesMentoring] = useState<
     "INDIVIDUEL" | "COLLECTIF" | "LES_DEUX" | ""
   >("");
   const [minExperience, setMinExperience] = useState("");
+  const [disponibilite, setDisponibilite] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasFiltered, setHasFiltered] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -82,9 +84,11 @@ export function MentorsFilterableCatalog({
         expertise,
         secteur,
         pays,
+        ville,
         langue,
         typesMentoring,
         minExperience: Number.isFinite(parsedExp) && parsedExp > 0 ? parsedExp : undefined,
+        disponibilite,
         limit: 30,
       },
       true
@@ -96,9 +100,11 @@ export function MentorsFilterableCatalog({
     setExpertise("");
     setSecteur("");
     setPays("");
+    setVille("");
     setLangue("");
     setTypesMentoring("");
     setMinExperience("");
+    setDisponibilite("");
     setErrorMessage(null);
     setHasFiltered(false);
     setMentors(initialMentors);
@@ -155,6 +161,13 @@ export function MentorsFilterableCatalog({
             className="rounded-xl h-9"
           />
           <Input
+            value={ville}
+            onChange={(e) => setVille(e.target.value)}
+            placeholder="Ville (ex: Dakar)"
+            aria-label="Filtrer par ville"
+            className="rounded-xl h-9"
+          />
+          <Input
             value={langue}
             onChange={(e) => setLangue(e.target.value)}
             placeholder="Langue (ex: Français)"
@@ -184,6 +197,13 @@ export function MentorsFilterableCatalog({
             onChange={(e) => setMinExperience(e.target.value)}
             placeholder="Expérience min (ans)"
             aria-label="Années d'expérience minimum"
+            className="rounded-xl h-9"
+          />
+          <Input
+            value={disponibilite}
+            onChange={(e) => setDisponibilite(e.target.value)}
+            placeholder="Disponibilité (ex: soir, weekend)"
+            aria-label="Filtrer par disponibilité"
             className="rounded-xl h-9"
           />
         </div>

@@ -43,7 +43,7 @@ export default async function ExpertSpaceLayout({
       icon: "calendar",
     },
     {
-      label: "Mon Profil",
+      label: "Profil & Paramètres",
       href: ROUTES.EXPERT.PROFILE,
       icon: "user",
     },

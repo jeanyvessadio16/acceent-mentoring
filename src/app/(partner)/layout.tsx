@@ -43,7 +43,7 @@ export default async function PartnerSpaceLayout({
       icon: "bar-chart",
     },
     {
-      label: "Mon Profil",
+      label: "Profil & Paramètres",
       href: ROUTES.PARTNER.PROFILE,
       icon: "user",
     },

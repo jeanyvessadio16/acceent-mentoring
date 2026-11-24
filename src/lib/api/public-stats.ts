@@ -33,7 +33,9 @@ export async function getPublicHomeStats(): Promise<PublicHomeStats> {
   cacheLife("minutes");
 
   try {
-    const res = await fetch(`${getApiBaseUrlFromEnv()}/dashboards/public-stats`);
+    const res = await fetch(`${getApiBaseUrlFromEnv()}/dashboards/public-stats`, {
+      signal: AbortSignal.timeout(4000),
+    });
     if (!res.ok) {
       return EMPTY_PUBLIC_HOME_STATS;
     }
@@ -51,7 +53,11 @@ export async function getPublicHomeStats(): Promise<PublicHomeStats> {
         data.totalMasterclasses ?? data.upcomingMasterclasses ?? 0,
     };
   } catch (err) {
-    console.error("Erreur getPublicHomeStats :", err);
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      console.warn("Timeout getPublicHomeStats :", err.message);
+    } else {
+      console.error("Erreur getPublicHomeStats :", err);
+    }
     return EMPTY_PUBLIC_HOME_STATS;
   }
 }

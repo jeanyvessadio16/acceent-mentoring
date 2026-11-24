@@ -74,6 +74,23 @@ const EMPTY_PLATFORM_STATS: AdminDashboardStats = {
   activePrograms: 0,
   completedSessions: 0,
   satisfactionRate: 0,
+  activeUsers: 0,
+  newUsersLast30Days: 0,
+  completedProfilesCount: 0,
+  activeMentorsCount: 0,
+  totalMatchesCount: 0,
+  totalRequestsCount: 0,
+  pendingRequestsCount: 0,
+  completedProgramsCount: 0,
+  programCompletionRate: 0,
+  totalSessionsCount: 0,
+  averageSatisfactionRating: null,
+  masterclassesCount: 0,
+  masterclassRegistrationsCount: 0,
+  totalOpportunitiesCount: 0,
+  activeOpportunitiesCount: 0,
+  employmentStageOpportunitiesCount: 0,
+  pendingReportsCount: 0,
   demographics: {
     femalePercentage: 0,
     malePercentage: 0,
@@ -97,10 +114,27 @@ interface AuthMeAdminResponse {
 interface AdminStatsApiResponse {
   kpis: {
     totalUsers: number;
+    activeUsers?: number;
+    newUsersLast30Days?: number;
+    completedProfilesCount?: number;
+    activeMentorsCount?: number;
     pendingValidationsCount: number;
+    totalMatchesCount?: number;
+    totalRequestsCount?: number;
+    pendingRequestsCount?: number;
     activeProgramsCount: number;
+    completedProgramsCount?: number;
+    programCompletionRate?: number;
+    totalSessionsCount?: number;
     completedSessionsCount: number;
+    averageSatisfactionRating?: number | null;
     satisfactionRate?: number;
+    masterclassesCount?: number;
+    masterclassRegistrationsCount?: number;
+    totalOpportunitiesCount?: number;
+    activeOpportunitiesCount?: number;
+    employmentStageOpportunitiesCount?: number;
+    pendingReportsCount?: number;
   };
   demographics: {
     byRole?: Record<string, number>;
@@ -186,6 +220,23 @@ export async function getAdminStatsAction(): Promise<AdminDashboardStats> {
     activePrograms: kpis.activeProgramsCount ?? 0,
     completedSessions: kpis.completedSessionsCount ?? 0,
     satisfactionRate: kpis.satisfactionRate ?? 0,
+    activeUsers: kpis.activeUsers ?? 0,
+    newUsersLast30Days: kpis.newUsersLast30Days ?? 0,
+    completedProfilesCount: kpis.completedProfilesCount ?? 0,
+    activeMentorsCount: kpis.activeMentorsCount ?? 0,
+    totalMatchesCount: kpis.totalMatchesCount ?? 0,
+    totalRequestsCount: kpis.totalRequestsCount ?? 0,
+    pendingRequestsCount: kpis.pendingRequestsCount ?? 0,
+    completedProgramsCount: kpis.completedProgramsCount ?? 0,
+    programCompletionRate: kpis.programCompletionRate ?? 0,
+    totalSessionsCount: kpis.totalSessionsCount ?? 0,
+    averageSatisfactionRating: kpis.averageSatisfactionRating ?? null,
+    masterclassesCount: kpis.masterclassesCount ?? 0,
+    masterclassRegistrationsCount: kpis.masterclassRegistrationsCount ?? 0,
+    totalOpportunitiesCount: kpis.totalOpportunitiesCount ?? 0,
+    activeOpportunitiesCount: kpis.activeOpportunitiesCount ?? 0,
+    employmentStageOpportunitiesCount: kpis.employmentStageOpportunitiesCount ?? 0,
+    pendingReportsCount: kpis.pendingReportsCount ?? 0,
     demographics: {
       femalePercentage: demographics.femalePercentage ?? 0,
       malePercentage: demographics.malePercentage ?? 0,
@@ -223,16 +274,25 @@ export async function getPendingValidationsAction(): Promise<
         })
       : "Date non renseignée";
 
+    const rawRole = u.role?.toLowerCase();
+    const normalizedRole: PendingValidationItem["role"] =
+      rawRole === "expert"
+        ? "expert"
+        : rawRole === "partenaire" || rawRole === "partner"
+        ? "partner"
+        : "mentor";
+
     return {
       id: u.id,
       userId: u.id,
       firstName: u.prenom || "",
       lastName: u.nom || "",
       email: u.email,
-      role: (u.role?.toLowerCase() === "expert" ? "expert" : "mentor") as
-        | "mentor"
-        | "expert",
-      title: profile?.fonction || "Candidat Mentor / Expert",
+      role: normalizedRole,
+      title:
+        normalizedRole === "partner"
+          ? profile?.fonction || "Compte Partenaire"
+          : profile?.fonction || "Candidat Mentor / Expert",
       organization: profile?.organisation || undefined,
       yearsOfExperience: profile?.anneesExperience || 0,
       expertises: profile?.expertises || [],
@@ -293,6 +353,92 @@ export async function updateUserStatusAction(
         ? "Le compte a été suspendu."
         : "Le profil a été rejeté.",
   };
+}
+
+export type AdminAssignableRole =
+  | "BENEFICIAIRE"
+  | "MENTOR"
+  | "EXPERT"
+  | "PARTENAIRE"
+  | "ADMIN";
+
+/**
+ * Server Action : Modifie le rôle d'un utilisateur via `PATCH /admin/users/:id/role`
+ */
+export async function updateUserRoleAction(
+  userId: string,
+  role: AdminAssignableRole
+): Promise<{ success: boolean; message: string }> {
+  const res = await apiRequest(`/admin/users/${userId}/role`, {
+    method: "PATCH",
+    body: { role },
+  });
+
+  if (!res.ok) {
+    return {
+      success: false,
+      message: res.error || "Erreur lors de la modification du rôle.",
+    };
+  }
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/validations");
+
+  return {
+    success: true,
+    message: `Rôle mis à jour vers ${role}.`,
+  };
+}
+
+export interface AdminProgramItem {
+  id: string;
+  titre: string;
+  status: string;
+  progression: number;
+  startDate: string;
+  createdAt: string;
+  mentor: { id: string; nom: string; prenom: string; email: string };
+  mentee: { id: string; nom: string; prenom: string; email: string };
+  _count: { goals: number; tasks: number; sessions: number };
+}
+
+export interface AdminSessionItem {
+  id: string;
+  titre: string;
+  dateDebut: string;
+  dateFin: string;
+  status: string;
+  rating: number | null;
+  meetingUrl: string | null;
+  mentor: { id: string; nom: string; prenom: string; email: string };
+  mentee: { id: string; nom: string; prenom: string; email: string };
+}
+
+export async function getAdminProgramsAction(
+  page = 1,
+  limit = 50
+): Promise<AdminProgramItem[]> {
+  const res = await apiRequest<{ data: AdminProgramItem[] }>("/admin/programs", {
+    query: { page: Math.max(1, page), limit: Math.min(Math.max(1, limit), 50) },
+  });
+  if (!res.ok || !res.data?.data) {
+    return [];
+  }
+  return res.data.data;
+}
+
+export async function getAdminSessionsAction(
+  page = 1,
+  limit = 50
+): Promise<AdminSessionItem[]> {
+  const res = await apiRequest<{ data: AdminSessionItem[] }>("/admin/sessions", {
+    query: { page: Math.max(1, page), limit: Math.min(Math.max(1, limit), 50) },
+  });
+  if (!res.ok || !res.data?.data) {
+    return [];
+  }
+  return res.data.data;
 }
 
 /**

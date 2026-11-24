@@ -77,9 +77,9 @@ interface WorkspaceUserInfo {
 interface WorkspaceLayoutShellProps {
   roleLabel: string;
   roleBadgeClassName: string;
-  headerTitle: string;
-  headerSubtitle: string;
-  headerIcon: WorkspaceIconKey;
+  headerTitle?: string;
+  headerSubtitle?: string;
+  headerIcon?: WorkspaceIconKey;
   homeHref: string;
   profileHref: string;
   navItems: WorkspaceNavItem[];
@@ -267,7 +267,7 @@ export function WorkspaceLayoutShell({
 }: WorkspaceLayoutShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const HeaderIcon = ICON_MAP[headerIcon] || LayoutDashboard;
+  const HeaderIcon = (headerIcon && ICON_MAP[headerIcon]) || LayoutDashboard;
   const initials = (() => {
     const p = user?.prenom?.trim();
     const n = user?.nom?.trim();
@@ -305,15 +305,21 @@ export function WorkspaceLayoutShell({
               <Menu className="h-5 w-5" />
             </button>
 
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-secondary/10 text-secondary">
-                <HeaderIcon className="h-3.5 w-3.5" />
-                <span>{headerTitle}</span>
-              </span>
-              <span className="hidden sm:inline-block text-xs text-muted-foreground">
-                · {headerSubtitle}
-              </span>
-            </div>
+            {(headerTitle || headerSubtitle) && (
+              <div className="flex items-center gap-2">
+                {headerTitle && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-secondary/10 text-secondary">
+                    <HeaderIcon className="h-3.5 w-3.5" />
+                    <span>{headerTitle}</span>
+                  </span>
+                )}
+                {headerSubtitle && (
+                  <span className="hidden sm:inline-block text-xs text-muted-foreground">
+                    · {headerSubtitle}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">

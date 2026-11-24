@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Menu,
-  ShieldCheck,
   ExternalLink,
 } from "lucide-react";
 import { AdminSidebar } from "./AdminSidebar";
@@ -37,16 +36,6 @@ export function AdminHeader({ pendingCount = 0, currentUser }: AdminHeaderProps)
           >
             <Menu className="h-5 w-5" />
           </button>
-
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-primary/10 text-primary">
-              <ShieldCheck className="h-3.5 w-3.5 text-secondary" />
-              <span>Console d&apos;Administration</span>
-            </span>
-            <span className="hidden sm:inline-block text-xs text-muted-foreground">
-              · Région Sénégal & Afrique de l&apos;Ouest
-            </span>
-          </div>
         </div>
 
         {/* Côté droit : Recherche rapide, notifications, lien plateforme, profil */}

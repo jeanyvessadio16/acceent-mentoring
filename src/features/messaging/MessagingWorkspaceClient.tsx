@@ -1,15 +1,27 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Loader2, MessageSquare, RefreshCw, Send } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import {
+  ExternalLink,
+  FileText,
+  Loader2,
+  MessageSquare,
+  Paperclip,
+  RefreshCw,
+  Send,
+  X,
+} from "lucide-react";
 
 import {
   getConversationMessagesAction,
   markConversationReadAction,
   sendConversationMessageAction,
+  uploadMessageAttachmentAction,
   type ChatMessageApiItem,
   type ConversationApiItem,
+  type UploadedAttachmentPayload,
 } from "@/lib/actions/messaging";
+import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 import { ReportModalButton } from "@/features/moderation/ReportModalButton";
 import { Button } from "@/components/ui/button";
 
@@ -20,12 +32,19 @@ interface MessagingWorkspaceClientProps {
   startupError?: string | null;
 }
 
+function formatAttachmentSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
 export function MessagingWorkspaceClient({
   initialConversations,
   initialConversationId,
   initialMessages,
   startupError = null,
 }: MessagingWorkspaceClientProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [conversations, setConversations] =
     useState<ConversationApiItem[]>(initialConversations);
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -34,6 +53,10 @@ export function MessagingWorkspaceClient({
   const [messages, setMessages] =
     useState<ChatMessageApiItem[]>(initialMessages);
   const [draft, setDraft] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<
+    UploadedAttachmentPayload[]
+  >([]);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(startupError);
   const [isPending, startTransition] = useTransition();
 
@@ -44,6 +67,7 @@ export function MessagingWorkspaceClient({
 
   function handleSelectConversation(convId: string) {
     setErrorMessage(null);
+    setPendingAttachments([]);
     setSelectedId(convId);
     startTransition(async () => {
       const msgRes = await getConversationMessagesAction(convId);
@@ -70,20 +94,59 @@ export function MessagingWorkspaceClient({
     });
   }
 
+  async function handleSelectAttachment(file: File) {
+    if (!selectedId) return;
+    if (pendingAttachments.length >= 3) {
+      setErrorMessage("Vous pouvez joindre au maximum 3 fichiers par message.");
+      return;
+    }
+
+    setErrorMessage(null);
+    setIsUploadingAttachment(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await uploadMessageAttachmentAction(selectedId, formData);
+      if (!res.ok || !res.data) {
+        setErrorMessage(
+          res.error ?? "Impossible de téléverser cette pièce jointe."
+        );
+        return;
+      }
+      setPendingAttachments((prev) => [...prev, res.data!]);
+    } catch {
+      setErrorMessage("Erreur réseau pendant le téléversement du fichier.");
+    } finally {
+      setIsUploadingAttachment(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
+
   function handleSend(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!selectedId || !draft.trim()) return;
+    if (!selectedId) return;
+    const trimmedContent = draft.trim();
+    if (!trimmedContent && pendingAttachments.length === 0) return;
+
+    const finalContent = trimmedContent || "Pièce jointe partagée";
+    const attachmentsToSend = [...pendingAttachments];
     setErrorMessage(null);
-    const content = draft.trim();
 
     startTransition(async () => {
-      const res = await sendConversationMessageAction(selectedId, content);
+      const res = await sendConversationMessageAction(
+        selectedId,
+        finalContent,
+        attachmentsToSend
+      );
       if (!res.ok || !res.data) {
         setErrorMessage(res.error ?? "Impossible d'envoyer ce message.");
         return;
       }
 
       setDraft("");
+      setPendingAttachments([]);
       setMessages((prev) => [res.data!, ...prev]);
       setConversations((prev) =>
         prev.map((c) =>
@@ -208,7 +271,7 @@ export function MessagingWorkspaceClient({
                           }`}
                         >
                           <div
-                            className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs space-y-1 ${
+                            className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs space-y-2 ${
                               isMine
                                 ? "bg-primary text-white"
                                 : "bg-slate-100 text-foreground"
@@ -217,6 +280,44 @@ export function MessagingWorkspaceClient({
                             <p className="leading-relaxed whitespace-pre-wrap">
                               {msg.content}
                             </p>
+
+                            {msg.attachments && msg.attachments.length > 0 && (
+                              <div className="space-y-1.5 pt-1">
+                                {msg.attachments.map((att) => {
+                                  const safeFileUrl = sanitizeExternalUrl(
+                                    att.fileUrl
+                                  );
+                                  if (!safeFileUrl) return null;
+                                  return (
+                                    <a
+                                      key={att.id}
+                                      href={safeFileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl text-[11px] font-medium border transition-colors ${
+                                        isMine
+                                          ? "bg-white/10 border-white/25 text-white hover:bg-white/20"
+                                          : "bg-white border-border text-foreground hover:bg-slate-50"
+                                      }`}
+                                    >
+                                      <span className="inline-flex items-center gap-1.5 truncate">
+                                        <FileText className="h-3.5 w-3.5 shrink-0" />
+                                        <span className="truncate">
+                                          {att.fileName}
+                                        </span>
+                                      </span>
+                                      <span className="inline-flex items-center gap-1 shrink-0 opacity-85">
+                                        <span>
+                                          {formatAttachmentSize(att.fileSize)}
+                                        </span>
+                                        <ExternalLink className="h-3 w-3" />
+                                      </span>
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            )}
+
                             <p
                               className={`text-[10px] ${
                                 isMine ? "text-white/75" : "text-muted-foreground"
@@ -231,31 +332,96 @@ export function MessagingWorkspaceClient({
                   )}
                 </div>
 
-                <form
-                  onSubmit={handleSend}
-                  className="p-4 border-t border-border flex items-center gap-2 bg-white"
-                >
-                  <input
-                    type="text"
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder="Écrivez votre message..."
-                    aria-label="Message"
-                    className="flex-1 h-10 rounded-full border border-input bg-slate-50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={isPending || !draft.trim()}
-                    className="rounded-full h-10 px-5"
+                <div className="border-t border-border bg-white">
+                  {pendingAttachments.length > 0 && (
+                    <div className="px-4 pt-3 flex flex-wrap gap-2">
+                      {pendingAttachments.map((att, idx) => (
+                        <span
+                          key={`${att.fileName}-${idx}`}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-primary/10 text-primary border border-primary/20"
+                        >
+                          <Paperclip className="h-3 w-3 shrink-0" />
+                          <span className="max-w-[160px] truncate">
+                            {att.fileName}
+                          </span>
+                          <span className="text-[10px] opacity-75">
+                            ({formatAttachmentSize(att.fileSize)})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPendingAttachments((prev) =>
+                                prev.filter((_, i) => i !== idx)
+                              )
+                            }
+                            aria-label={`Retirer ${att.fileName}`}
+                            className="hover:text-red-600"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <form
+                    onSubmit={handleSend}
+                    className="p-4 flex items-center gap-2"
                   >
-                    {isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4 mr-1.5" />
-                    )}
-                    Envoyer
-                  </Button>
-                </form>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          void handleSelectAttachment(file);
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      disabled={isUploadingAttachment || isPending}
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Joindre un fichier (PDF, JPG, PNG, WEBP · max 5 Mo)"
+                      aria-label="Joindre une pièce jointe"
+                      className="rounded-full h-10 w-10 shrink-0"
+                    >
+                      {isUploadingAttachment ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Paperclip className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <input
+                      type="text"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      placeholder="Écrivez votre message..."
+                      aria-label="Message"
+                      className="flex-1 h-10 rounded-full border border-input bg-slate-50 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                    <Button
+                      type="submit"
+                      disabled={
+                        isPending ||
+                        isUploadingAttachment ||
+                        (!draft.trim() && pendingAttachments.length === 0)
+                      }
+                      className="rounded-full h-10 px-5"
+                    >
+                      {isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-1.5" />
+                      )}
+                      Envoyer
+                    </Button>
+                  </form>
+                </div>
               </>
             ) : (
               <div className="flex-1 flex items-center justify-center p-8 text-sm text-muted-foreground">

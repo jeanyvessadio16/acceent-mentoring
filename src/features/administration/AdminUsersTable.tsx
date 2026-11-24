@@ -21,7 +21,11 @@ import {
   Check,
 } from "lucide-react";
 import type { RealDatabaseUser } from "@/lib/actions/admin";
-import { updateUserStatusAction } from "@/lib/actions/admin";
+import {
+  updateUserRoleAction,
+  updateUserStatusAction,
+  type AdminAssignableRole,
+} from "@/lib/actions/admin";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -44,6 +48,7 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedInclusion, setSelectedInclusion] = useState<string>("ALL");
   const [selectedUser, setSelectedUser] = useState<RealDatabaseUser | null>(null);
+  const [editingRole, setEditingRole] = useState<AdminAssignableRole>("BENEFICIAIRE");
 
   const [isPending, startTransition] = useTransition();
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -51,6 +56,13 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  const openUserModal = (user: RealDatabaseUser) => {
+    setSelectedUser(user);
+    setEditingRole(
+      (user.role as AdminAssignableRole) || "BENEFICIAIRE"
+    );
+  };
 
   // Statistiques dérivées
   const stats = useMemo(() => {
@@ -154,6 +166,45 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
           setFeedback({
             type: "error",
             message: result.message || "Erreur lors de la mise à jour.",
+          });
+        }
+      } catch {
+        setFeedback({
+          type: "error",
+          message: "Une erreur réseau est survenue.",
+        });
+      } finally {
+        setProcessingId(null);
+      }
+    });
+  };
+
+  // Gestion du changement de rôle d'un utilisateur (F16)
+  const handleRoleChange = (userId: string, nextRole: AdminAssignableRole) => {
+    setProcessingId(userId);
+    setFeedback(null);
+
+    startTransition(async () => {
+      try {
+        const result = await updateUserRoleAction(userId, nextRole);
+        if (result.success) {
+          setUsers((prev) =>
+            prev.map((u) =>
+              u.id === userId
+                ? { ...u, role: nextRole, updatedAt: new Date().toISOString() }
+                : u
+            )
+          );
+          if (selectedUser?.id === userId) {
+            setSelectedUser((prev) =>
+              prev ? { ...prev, role: nextRole } : null
+            );
+          }
+          setFeedback({ type: "success", message: result.message });
+        } else {
+          setFeedback({
+            type: "error",
+            message: result.message || "Erreur lors de la modification du rôle.",
           });
         }
       } catch {
@@ -581,7 +632,7 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
                     key={user.id}
                     data-state={selectedUser?.id === user.id ? "selected" : undefined}
                     className="group cursor-pointer"
-                    onClick={() => setSelectedUser(user)}
+                    onClick={() => openUserModal(user)}
                   >
                     {/* Identité */}
                     <TableCell className="px-5 py-3.5">
@@ -672,7 +723,7 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
                         variant="ghost"
                         size="sm"
                         className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => setSelectedUser(user)}
+                        onClick={() => openUserModal(user)}
                       >
                         <Eye className="h-3.5 w-3.5 mr-1" />
                         Détails
@@ -879,6 +930,42 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
                         : "Non renseigné"}
                     </span>
                   </div>
+                </div>
+              </div>
+
+              {/* Attribution de rôle (F16) */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-border space-y-2">
+                <h4 className="font-semibold text-[11px] uppercase tracking-wider text-slate-500">
+                  Gestion du rôle
+                </h4>
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label="Nouveau rôle utilisateur"
+                    value={editingRole}
+                    onChange={(e) =>
+                      setEditingRole(e.target.value as AdminAssignableRole)
+                    }
+                    className="flex-1 h-9 rounded-xl border border-border bg-white px-3 text-xs text-foreground focus:outline-none focus:border-primary"
+                  >
+                    <option value="BENEFICIAIRE">Bénéficiaire</option>
+                    <option value="MENTOR">Mentor</option>
+                    <option value="EXPERT">Expert</option>
+                    <option value="PARTENAIRE">Partenaire</option>
+                    <option value="ADMIN">Administrateur</option>
+                  </select>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={
+                      isPending || editingRole === selectedUser.role
+                    }
+                    onClick={() =>
+                      handleRoleChange(selectedUser.id, editingRole)
+                    }
+                    className="h-9 px-3 rounded-xl text-xs"
+                  >
+                    Enregistrer le rôle
+                  </Button>
                 </div>
               </div>
             </div>

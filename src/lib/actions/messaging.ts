@@ -102,9 +102,76 @@ export async function getConversationMessagesAction(
   return { ok: true, data: res.data.data ?? [] };
 }
 
+export interface UploadedAttachmentPayload {
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+}
+
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+export async function uploadMessageAttachmentAction(
+  conversationId: string,
+  formData: FormData
+): Promise<{
+  ok: boolean;
+  data?: UploadedAttachmentPayload;
+  error?: string;
+}> {
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { ok: false, error: "Aucun fichier sélectionné." };
+  }
+
+  if (file.size <= 0 || file.size > MAX_ATTACHMENT_BYTES) {
+    return {
+      ok: false,
+      error: "La pièce jointe doit être comprise entre 1 octet et 5 Mo.",
+    };
+  }
+
+  if (file.type && !ALLOWED_ATTACHMENT_MIME_TYPES.has(file.type)) {
+    return {
+      ok: false,
+      error: "Formats acceptés : PDF, JPG, PNG ou WEBP.",
+    };
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const base64Data = Buffer.from(bytes).toString("base64");
+
+  const res = await apiRequest<UploadedAttachmentPayload>(
+    `/conversations/${conversationId}/attachments`,
+    {
+      method: "POST",
+      body: {
+        fileName: file.name,
+        base64Data,
+      },
+    }
+  );
+
+  if (!res.ok || !res.data) {
+    return {
+      ok: false,
+      error: res.error ?? "Impossible de téléverser cette pièce jointe.",
+    };
+  }
+
+  return { ok: true, data: res.data };
+}
+
 export async function sendConversationMessageAction(
   conversationId: string,
-  content: string
+  content: string,
+  attachments?: UploadedAttachmentPayload[]
 ): Promise<{
   ok: boolean;
   data?: ChatMessageApiItem;
@@ -114,7 +181,10 @@ export async function sendConversationMessageAction(
     `/conversations/${conversationId}/messages`,
     {
       method: "POST",
-      body: { content },
+      body: {
+        content,
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
+      },
     }
   );
   if (!res.ok || !res.data) {
