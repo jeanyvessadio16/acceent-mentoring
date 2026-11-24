@@ -48,6 +48,34 @@ export interface DiagnosticActionResult {
   data?: SubmitDiagnosticResponseData;
 }
 
+export interface ExistingDiagnosticRecord {
+  id: string;
+  situation?: string | null;
+  objectifPrincipal?: string | null;
+  domaine?: string | null;
+  niveau?: string | null;
+  typeAccompagnement?: string | null;
+  competences?: string[] | null;
+  besoins?: string[] | null;
+  secteur?: string | null;
+  contraintes?: string[] | null;
+  disponibilite?: string | null;
+  preferenceMentoring?: string | null;
+  isCompleted?: boolean;
+  updatedAt?: string;
+}
+
+/**
+ * Server Action : Consulter le diagnostic actuel de l'utilisateur via `GET /diagnostic/me` (F04)
+ */
+export async function getMyDiagnosticAction(): Promise<ExistingDiagnosticRecord | null> {
+  const res = await apiRequest<ExistingDiagnosticRecord | null>("/diagnostic/me");
+  if (!res.ok || !res.data || !res.data.id) {
+    return null;
+  }
+  return res.data;
+}
+
 /**
  * Server Action : Soumettre les réponses au questionnaire de diagnostic initial (F04)
  * et déclencher le moteur de matching (F05) via l'API NestJS

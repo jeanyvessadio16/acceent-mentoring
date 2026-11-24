@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Award,
   CheckCircle2,
   Download,
+  ExternalLink,
   Eye,
   EyeOff,
   KeyRound,
@@ -25,6 +27,7 @@ import {
   updateAccountPrivacyAction,
   type UserFullProfile,
 } from "@/lib/actions/profile";
+import { ROUTES } from "@/lib/constants";
 import {
   readStoredThemePreference,
   setThemePreference,
@@ -462,6 +465,15 @@ export function UserSettingsPanel({
                 ? "Votre profil public peut être consulté par les membres autorisés."
                 : "Votre profil est masqué des consultations publiques."}
             </span>
+            {isPublic && (
+              <Link
+                href={ROUTES.PUBLIC_USER_PROFILE(profile.id)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline mt-1"
+              >
+                <span>Aperçu de mon profil public</span>
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            )}
           </div>
           <Button
             type="button"

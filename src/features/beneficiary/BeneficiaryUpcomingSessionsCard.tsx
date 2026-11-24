@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Calendar, Clock, Video, ArrowRight, User } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
+import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 import type { BeneficiaryDashboardData } from "@/types";
 
 interface BeneficiaryUpcomingSessionsCardProps {
@@ -58,6 +59,7 @@ export function BeneficiaryUpcomingSessionsCard({
               hour: "2-digit",
               minute: "2-digit",
             });
+            const safeMeetingUrl = sanitizeExternalUrl(session.meetingUrl);
 
             return (
               <div
@@ -81,9 +83,9 @@ export function BeneficiaryUpcomingSessionsCard({
                   </div>
                 </div>
 
-                {session.meetingUrl ? (
+                {safeMeetingUrl ? (
                   <a
-                    href={session.meetingUrl}
+                    href={safeMeetingUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold text-white bg-secondary hover:bg-secondary/90 transition-colors shrink-0"

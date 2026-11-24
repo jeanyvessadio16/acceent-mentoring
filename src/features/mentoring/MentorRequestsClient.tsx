@@ -105,8 +105,8 @@ export function MentorRequestsClient({
               action === "ACCEPT"
                 ? "ACCEPTED"
                 : action === "REJECT"
-                ? "REJECTED"
-                : "PENDING",
+                  ? "REJECTED"
+                  : "PENDING",
             responseMessage: responseMessage ?? item.responseMessage,
             respondedAt: new Date().toISOString(),
           };
@@ -119,8 +119,8 @@ export function MentorRequestsClient({
           action === "ACCEPT"
             ? "Demande acceptée ! Le parcours d'accompagnement a été créé."
             : action === "REJECT"
-            ? "Demande refusée et notification envoyée au bénéficiaire."
-            : "Demande de précisions transmise au bénéficiaire.",
+              ? "Demande refusée et notification envoyée au bénéficiaire."
+              : "Demande de précisions transmise au bénéficiaire.",
       });
       router.refresh();
     });
@@ -149,11 +149,10 @@ export function MentorRequestsClient({
                   key={statusKey}
                   type="button"
                   onClick={() => setFilterStatus(statusKey)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                    isSelected
-                      ? "bg-primary text-white border-primary"
-                      : "bg-white text-muted-foreground border-border hover:border-primary/40"
-                  }`}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${isSelected
+                    ? "bg-primary text-white border-primary"
+                    : "bg-white text-muted-foreground border-border hover:border-primary/40"
+                    }`}
                 >
                   {labels[statusKey]} ({count})
                 </button>
@@ -165,11 +164,10 @@ export function MentorRequestsClient({
 
       {feedback && (
         <div
-          className={`p-3.5 rounded-2xl border text-xs font-medium ${
-            feedback.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-              : "bg-red-50 border-red-200 text-red-700"
-          }`}
+          className={`p-3.5 rounded-2xl border text-xs font-medium ${feedback.type === "success"
+            ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+            : "bg-red-50 border-red-200 text-red-700"
+            }`}
         >
           {feedback.text}
         </div>

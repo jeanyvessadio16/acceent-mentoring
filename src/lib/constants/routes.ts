@@ -9,6 +9,7 @@ export const ROUTES = {
   MENTORS_CATALOG: '/mentors',
   OPPORTUNITIES_CATALOG: '/opportunities',
   MASTERCLASSES_CATALOG: '/masterclasses',
+  PUBLIC_USER_PROFILE: (id: string) => `/profile/${id}`,
 
   // Authentification
   AUTH: {
@@ -28,7 +29,7 @@ export const ROUTES = {
   BENEFICIARY: {
     DASHBOARD: '/dashboard/beneficiaire',
     DIAGNOSIS: '/diagnostic',
-    RECOMMENDATIONS: '/beneficiary/recommendations',
+    RECOMMENDATIONS: '/dashboard/beneficiaire',
     MENTORS: '/beneficiary/mentors',
     MENTOR_DETAIL: (id: string) => `/beneficiary/mentors/${id}`,
     MENTOR_REQUEST: (mentorId: string) => `/beneficiary/request/${mentorId}`,

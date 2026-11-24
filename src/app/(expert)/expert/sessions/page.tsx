@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Calendar, Clock, User, Video } from "lucide-react";
 import { getExpertWorkspaceDataAction } from "@/lib/actions/workspace";
+import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 import { ROUTES } from "@/lib/constants";
 
 export const instant = false;
@@ -44,51 +45,54 @@ export default async function ExpertSessionsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {data.sessions.map((session) => (
-            <div
-              key={session.id}
-              className="bg-white p-6 rounded-3xl border border-border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-foreground">{session.titre}</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
-                    {session.status}
-                  </span>
+          {data.sessions.map((session) => {
+            const safeMeetingUrl = sanitizeExternalUrl(session.meetingUrl);
+            return (
+              <div
+                key={session.id}
+                className="bg-white p-6 rounded-3xl border border-border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-foreground">{session.titre}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
+                      {session.status}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <User className="h-3.5 w-3.5" />
+                      {session.menteeName}
+                    </span>
+                    <span>·</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {new Date(session.dateDebut).toLocaleDateString("fr-FR", {
+                        weekday: "short",
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <User className="h-3.5 w-3.5" />
-                    {session.menteeName}
-                  </span>
-                  <span>·</span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" />
-                    {new Date(session.dateDebut).toLocaleDateString("fr-FR", {
-                      weekday: "short",
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-              </div>
 
-              {session.meetingUrl && (
-                <a
-                  href={session.meetingUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-xs font-semibold text-white bg-secondary hover:bg-secondary/90 shrink-0"
-                >
-                  <Video className="h-4 w-4" />
-                  <span>Rejoindre la visio</span>
-                </a>
-              )}
-            </div>
-          ))}
+                {safeMeetingUrl && (
+                  <a
+                    href={safeMeetingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full text-xs font-semibold text-white bg-secondary hover:bg-secondary/90 shrink-0"
+                  >
+                    <Video className="h-4 w-4" />
+                    <span>Rejoindre la visio</span>
+                  </a>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -514,6 +514,25 @@ export async function createReportAction(dto: {
   return { ok: true };
 }
 
+export async function listMyReportsAction(): Promise<{
+  ok: boolean;
+  data: ReportApiItem[];
+  error?: string;
+}> {
+  const res = await apiRequest<ReportApiItem[] | { data?: ReportApiItem[] }>(
+    "/reports/me"
+  );
+  if (!res.ok || !res.data) {
+    return {
+      ok: false,
+      data: [],
+      error: res.error ?? "Impossible de charger vos signalements.",
+    };
+  }
+  const items = Array.isArray(res.data) ? res.data : (res.data.data ?? []);
+  return { ok: true, data: items };
+}
+
 export async function listAdminReportsAction(status?: string): Promise<{
   ok: boolean;
   data: ReportApiItem[];

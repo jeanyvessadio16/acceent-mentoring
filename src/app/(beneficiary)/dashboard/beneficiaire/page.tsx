@@ -12,6 +12,7 @@ import {
   FileText,
 } from "lucide-react";
 import { getBeneficiaryDashboardAction } from "@/lib/actions/beneficiary";
+import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 import {
   BeneficiaryWelcomeBanner,
   BeneficiaryStatsGrid,
@@ -123,32 +124,35 @@ export default async function BeneficiaireDashboardPage() {
                 </p>
               ) : (
                 <ul className="space-y-2.5">
-                  {sharedResources.slice(0, 4).map((res) => (
-                    <li
-                      key={res.id}
-                      className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-foreground truncate">
-                          {res.titre}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          {res.type}
-                        </p>
-                      </div>
-                      {res.url && (
-                        <a
-                          href={res.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1 shrink-0"
-                        >
-                          <span>Ouvrir</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      )}
-                    </li>
-                  ))}
+                  {sharedResources.slice(0, 4).map((res) => {
+                    const safeResourceUrl = sanitizeExternalUrl(res.url);
+                    return (
+                      <li
+                        key={res.id}
+                        className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-foreground truncate">
+                            {res.titre}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {res.type}
+                          </p>
+                        </div>
+                        {safeResourceUrl && (
+                          <a
+                            href={safeResourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1 shrink-0"
+                          >
+                            <span>Ouvrir</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
@@ -189,40 +193,43 @@ export default async function BeneficiaireDashboardPage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {recommendedOpportunities.map((opp) => (
-                  <div
-                    key={opp.id}
-                    className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-800">
-                        {opp.categorie}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        Expire le{" "}
-                        {new Date(opp.dateExpiration).toLocaleDateString(
-                          "fr-FR"
+                {recommendedOpportunities.map((opp) => {
+                  const safeApplyUrl = sanitizeExternalUrl(opp.lienCandidature);
+                  return (
+                    <div
+                      key={opp.id}
+                      className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-800">
+                          {opp.categorie}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Expire le{" "}
+                          {new Date(opp.dateExpiration).toLocaleDateString(
+                            "fr-FR"
+                          )}
+                        </span>
+                      </div>
+                      <p className="text-xs font-bold text-foreground line-clamp-1">
+                        {opp.titre}
+                      </p>
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span className="truncate">{opp.organisation}</span>
+                        {safeApplyUrl && (
+                          <a
+                            href={safeApplyUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary font-semibold hover:underline shrink-0"
+                          >
+                            Postuler
+                          </a>
                         )}
-                      </span>
+                      </div>
                     </div>
-                    <p className="text-xs font-bold text-foreground line-clamp-1">
-                      {opp.titre}
-                    </p>
-                    <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                      <span className="truncate">{opp.organisation}</span>
-                      {opp.lienCandidature && (
-                        <a
-                          href={opp.lienCandidature}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary font-semibold hover:underline shrink-0"
-                        >
-                          Postuler
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

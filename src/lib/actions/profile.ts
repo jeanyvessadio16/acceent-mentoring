@@ -290,34 +290,49 @@ export async function updateUserFullProfileAction(
     data.linkedinUrl !== undefined;
 
   if ((role === "MENTOR" || role === "EXPERT") && hasMentorUpdates) {
-    const mentorPatchRes = await apiRequest("/mentors/me", {
+    const mentorPayload = {
+      fonction: data.fonction?.trim() || undefined,
+      organisation: data.organisation?.trim() || undefined,
+      anneesExperience: data.anneesExperience,
+      biographie: data.biographie?.trim() || undefined,
+      photoUrl: data.photoUrl || undefined,
+      typesMentoring: data.typesMentoring || "INDIVIDUEL",
+      linkedinUrl: data.linkedinUrl?.trim() || undefined,
+      ...(data.mentorExpertises !== undefined
+        ? { expertises: data.mentorExpertises }
+        : {}),
+      ...(data.mentorSecteurs !== undefined
+        ? { secteurs: data.mentorSecteurs }
+        : {}),
+      ...(data.mentorPublicsAccompagnes !== undefined
+        ? { publicsAccompagnes: data.mentorPublicsAccompagnes }
+        : {}),
+      ...(data.mentorDisponibilites !== undefined
+        ? { disponibilites: data.mentorDisponibilites.trim() || undefined }
+        : {}),
+      ...(data.mentorReferences !== undefined
+        ? { references: data.mentorReferences.trim() || undefined }
+        : {}),
+      langues: data.langues.length > 0 ? data.langues : undefined,
+    };
+
+    let mentorPatchRes = await apiRequest("/mentors/me", {
       method: "PATCH",
-      body: {
-        fonction: data.fonction?.trim() || undefined,
-        organisation: data.organisation?.trim() || undefined,
-        anneesExperience: data.anneesExperience,
-        biographie: data.biographie?.trim() || undefined,
-        photoUrl: data.photoUrl || undefined,
-        typesMentoring: data.typesMentoring || "INDIVIDUEL",
-        linkedinUrl: data.linkedinUrl?.trim() || undefined,
-        ...(data.mentorExpertises !== undefined
-          ? { expertises: data.mentorExpertises }
-          : {}),
-        ...(data.mentorSecteurs !== undefined
-          ? { secteurs: data.mentorSecteurs }
-          : {}),
-        ...(data.mentorPublicsAccompagnes !== undefined
-          ? { publicsAccompagnes: data.mentorPublicsAccompagnes }
-          : {}),
-        ...(data.mentorDisponibilites !== undefined
-          ? { disponibilites: data.mentorDisponibilites.trim() || undefined }
-          : {}),
-        ...(data.mentorReferences !== undefined
-          ? { references: data.mentorReferences.trim() || undefined }
-          : {}),
-        langues: data.langues.length > 0 ? data.langues : undefined,
-      },
+      body: mentorPayload,
     });
+
+    if (
+      !mentorPatchRes.ok &&
+      mentorPatchRes.status === 404 &&
+      mentorPayload.fonction &&
+      mentorPayload.organisation &&
+      mentorPayload.biographie
+    ) {
+      mentorPatchRes = await apiRequest("/mentors/apply", {
+        method: "POST",
+        body: mentorPayload,
+      });
+    }
 
     if (!mentorPatchRes.ok) {
       return {
@@ -529,4 +544,64 @@ export async function updateAccountPrivacyAction(isPublic: boolean): Promise<{
       ? "Votre profil est désormais visible dans la communauté."
       : "Votre profil est désormais privé.",
   };
+}
+
+export interface PublicUserProfileData {
+  id: string;
+  prenom: string;
+  nom: string;
+  pays?: string | null;
+  role: string;
+  createdAt?: string;
+  profile?: {
+    photoUrl?: string | null;
+    ville?: string | null;
+    niveauEtude?: string | null;
+    secteurActivite?: string | null;
+    anneesExperience?: number | null;
+    competences?: string[];
+    centresInteret?: string[];
+    objectifs?: string[];
+    langues?: string[];
+    disponibilite?: string | null;
+  } | null;
+  mentorProfile?: {
+    id: string;
+    fonction?: string | null;
+    organisation?: string | null;
+    anneesExperience?: number | null;
+    expertises?: string[];
+    secteurs?: string[];
+    biographie?: string | null;
+    linkedinUrl?: string | null;
+    isAvailable?: boolean;
+  } | null;
+}
+
+/**
+ * Server Action : Consulter le profil public d'un membre via `GET /users/{id}/public` (F02)
+ */
+export async function getPublicUserProfileAction(userId: string): Promise<{
+  status: "ok" | "private" | "unauthorized" | "not_found";
+  data?: PublicUserProfileData;
+}> {
+  if (!userId || !/^[a-zA-Z0-9_-]{6,64}$/.test(userId)) {
+    return { status: "not_found" };
+  }
+
+  const res = await apiRequest<PublicUserProfileData>(
+    `/users/${encodeURIComponent(userId)}/public`
+  );
+
+  if (res.status === 401) {
+    return { status: "unauthorized" };
+  }
+  if (res.status === 403) {
+    return { status: "private" };
+  }
+  if (!res.ok || !res.data) {
+    return { status: "not_found" };
+  }
+
+  return { status: "ok", data: res.data };
 }

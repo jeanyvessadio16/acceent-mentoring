@@ -14,8 +14,15 @@ import {
   Calendar,
   Loader2,
 } from "lucide-react";
-import { submitDiagnosticAction } from "@/lib/actions/diagnostic";
+import {
+  submitDiagnosticAction,
+  type ExistingDiagnosticRecord,
+} from "@/lib/actions/diagnostic";
 import { ROUTES } from "@/lib/constants";
+
+interface DiagnosticWizardProps {
+  initialDiagnostic?: ExistingDiagnosticRecord | null;
+}
 
 interface RecommendationItem {
   mentorId: string;
@@ -69,7 +76,9 @@ const NEED_SUGGESTIONS = [
   "Recherche de débouchés",
 ];
 
-export function DiagnosticWizard() {
+export function DiagnosticWizard({
+  initialDiagnostic = null,
+}: DiagnosticWizardProps) {
   const router = useRouter();
 
   // Étape actuelle : 1 à 4 (formulaire), 5 (calcul/résultats)
@@ -78,18 +87,18 @@ export function DiagnosticWizard() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
 
-  // Données du formulaire (vierges par défaut, aucune donnée fictive pré-remplie)
+  // Données du formulaire (pré-remplies uniquement si un diagnostic réel existe déjà en base)
   const [formData, setFormData] = useState({
-    situation: "",
-    niveau: "",
-    domaine: "",
-    secteur: "",
-    objectifPrincipal: "",
-    competences: [] as string[],
-    besoins: [] as string[],
-    typeAccompagnement: "",
-    disponibilite: "",
-    preferenceMentoring: "",
+    situation: initialDiagnostic?.situation ?? "",
+    niveau: initialDiagnostic?.niveau ?? "",
+    domaine: initialDiagnostic?.domaine ?? "",
+    secteur: initialDiagnostic?.secteur ?? "",
+    objectifPrincipal: initialDiagnostic?.objectifPrincipal ?? "",
+    competences: initialDiagnostic?.competences ?? ([] as string[]),
+    besoins: initialDiagnostic?.besoins ?? ([] as string[]),
+    typeAccompagnement: initialDiagnostic?.typeAccompagnement ?? "",
+    disponibilite: initialDiagnostic?.disponibilite ?? "",
+    preferenceMentoring: initialDiagnostic?.preferenceMentoring ?? "",
   });
 
   const [customSkill, setCustomSkill] = useState("");
@@ -209,6 +218,15 @@ export function DiagnosticWizard() {
           />
         </div>
       </div>
+
+      {initialDiagnostic?.isCompleted && step <= 4 && (
+        <div className="p-3.5 rounded-xl bg-secondary/10 text-secondary text-xs font-medium border border-secondary/20 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>
+            Votre diagnostic enregistré a été chargé. Vous pouvez ajuster vos réponses et relancer le matching à tout moment.
+          </span>
+        </div>
+      )}
 
       {errorMessage && (
         <div className="p-3.5 rounded-xl bg-destructive/10 text-destructive text-xs font-medium border border-destructive/20">

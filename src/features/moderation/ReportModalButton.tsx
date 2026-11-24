@@ -1,11 +1,22 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckCircle2, Flag, Loader2, X } from "lucide-react";
+import { CheckCircle2, Flag, History, Loader2, X } from "lucide-react";
 
-import { createReportAction } from "@/lib/actions/catalogs";
+import {
+  createReportAction,
+  listMyReportsAction,
+  type ReportApiItem,
+} from "@/lib/actions/catalogs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+
+const REPORT_STATUS_LABELS: Record<string, string> = {
+  PENDING: "En attente",
+  REVIEWED: "En cours d'examen",
+  RESOLVED: "Résolu",
+  DISMISSED: "Classé sans suite",
+};
 
 interface ReportModalButtonProps {
   reportedUserId?: string;
@@ -21,10 +32,25 @@ export function ReportModalButton({
   label = "Signaler",
 }: ReportModalButtonProps) {
   const [open, setOpen] = useState(false);
+  const [activeView, setActiveView] = useState<"create" | "history">("create");
+  const [myReports, setMyReports] = useState<ReportApiItem[]>([]);
   const [motif, setMotif] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  function handleShowHistory() {
+    setActiveView("history");
+    setErrorMessage(null);
+    startTransition(async () => {
+      const res = await listMyReportsAction();
+      if (!res.ok) {
+        setErrorMessage(res.error ?? "Impossible de charger vos signalements.");
+        return;
+      }
+      setMyReports(res.data);
+    });
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -64,6 +90,7 @@ export function ReportModalButton({
         type="button"
         onClick={() => {
           setOpen(true);
+          setActiveView("create");
           setErrorMessage(null);
           setSuccessMessage(null);
         }}
@@ -104,55 +131,134 @@ export function ReportModalButton({
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="report-motif">Motif du signalement *</Label>
-                <textarea
-                  id="report-motif"
-                  value={motif}
-                  onChange={(e) => setMotif(e.target.value)}
-                  rows={4}
-                  required
-                  placeholder="Décrivez précisément la situation observée..."
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
+            <div className="flex items-center gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("create");
+                  setErrorMessage(null);
+                }}
+                className={`px-3 py-1.5 rounded-full font-semibold transition-colors ${
+                  activeView === "create"
+                    ? "bg-primary text-white"
+                    : "bg-slate-100 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Nouveau signalement
+              </button>
+              <button
+                type="button"
+                onClick={handleShowHistory}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full font-semibold transition-colors ${
+                  activeView === "history"
+                    ? "bg-primary text-white"
+                    : "bg-slate-100 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <History className="h-3.5 w-3.5" />
+                <span>Mes signalements</span>
+              </button>
+            </div>
 
-              {errorMessage && (
-                <p className="text-xs font-medium text-red-600">
-                  {errorMessage}
-                </p>
-              )}
-
-              {successMessage && (
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-700 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>{successMessage}</span>
+            {activeView === "history" ? (
+              <div className="space-y-3">
+                {isPending ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Chargement de vos signalements...</span>
+                  </div>
+                ) : errorMessage ? (
+                  <p className="text-xs font-medium text-red-600">
+                    {errorMessage}
+                  </p>
+                ) : myReports.length === 0 ? (
+                  <p className="py-6 text-center text-xs text-muted-foreground">
+                    Vous n&apos;avez soumis aucun signalement pour le moment.
+                  </p>
+                ) : (
+                  <ul className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {myReports.map((rep) => (
+                      <li
+                        key={rep.id}
+                        className="p-3 rounded-2xl bg-slate-50 border border-border space-y-1 text-xs"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-foreground">
+                            {rep.targetType}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white border border-border">
+                            {REPORT_STATUS_LABELS[rep.status] || rep.status}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground line-clamp-2">
+                          {rep.motif}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setOpen(false)}
+                    className="rounded-full"
+                  >
+                    Fermer
+                  </Button>
                 </div>
-              )}
-
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setOpen(false)}
-                  className="rounded-full"
-                >
-                  Fermer
-                </Button>
-                <Button
-                  type="submit"
-                  variant="destructive"
-                  disabled={isPending}
-                  className="rounded-full"
-                >
-                  {isPending && (
-                    <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  )}
-                  Envoyer le signalement
-                </Button>
               </div>
-            </form>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="report-motif">Motif du signalement *</Label>
+                  <textarea
+                    id="report-motif"
+                    value={motif}
+                    onChange={(e) => setMotif(e.target.value)}
+                    rows={4}
+                    required
+                    placeholder="Décrivez précisément la situation observée..."
+                    className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+
+                {errorMessage && (
+                  <p className="text-xs font-medium text-red-600">
+                    {errorMessage}
+                  </p>
+                )}
+
+                {successMessage && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-medium text-emerald-700 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    <span>{successMessage}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setOpen(false)}
+                    className="rounded-full"
+                  >
+                    Fermer
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="destructive"
+                    disabled={isPending}
+                    className="rounded-full"
+                  >
+                    {isPending && (
+                      <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                    )}
+                    Envoyer le signalement
+                  </Button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

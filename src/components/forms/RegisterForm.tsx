@@ -1311,6 +1311,7 @@ export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
                   <Link
                     href={ROUTES.LEGAL.CGU}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="text-secondary font-semibold hover:underline"
                   >
                     Conditions Générales d&apos;Utilisation (CGU)
@@ -1337,6 +1338,7 @@ export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
                   <Link
                     href={ROUTES.LEGAL.PRIVACY}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="text-secondary font-semibold hover:underline"
                   >
                     données personnelles
