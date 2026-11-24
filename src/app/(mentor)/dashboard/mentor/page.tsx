@@ -6,7 +6,7 @@ import {
   CheckSquare,
   Inbox,
   MessageSquare,
-  Sparkles,
+  Users,
   Calendar,
   UserCheck,
   Clock,
@@ -325,7 +325,7 @@ export default async function MentorDashboardPage() {
                 label: "Mes Mentorés",
                 desc: `${data.activeProgramsCount} parcours actif(s)`,
                 href: ROUTES.MENTOR.PARCOURS,
-                icon: Sparkles,
+                icon: Users,
                 badgeCls: "bg-secondary/10 text-secondary",
               },
               {

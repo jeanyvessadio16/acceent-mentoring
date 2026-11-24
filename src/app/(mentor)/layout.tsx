@@ -40,7 +40,7 @@ export default async function MentorSpaceLayout({
     {
       label: "Mes Mentorés",
       href: ROUTES.MENTOR.PARCOURS,
-      icon: "sparkles",
+      icon: "users",
     },
     {
       label: "Agenda & Sessions",

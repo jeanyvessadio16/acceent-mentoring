@@ -7,7 +7,6 @@ import {
   Clock,
   GraduationCap,
   Lock,
-  Sparkles,
   User,
   Users,
 } from "lucide-react";
@@ -54,7 +53,7 @@ export default async function PublicMasterclassesCatalogPage() {
         <div className="max-w-6xl mx-auto flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/15 text-white">
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <GraduationCap className="h-3.5 w-3.5 text-accent" />
               Ateliers &amp; conférences d&apos;experts
             </span>
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">

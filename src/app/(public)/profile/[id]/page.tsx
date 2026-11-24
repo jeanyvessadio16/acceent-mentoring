@@ -6,9 +6,9 @@ import {
   Briefcase,
   ExternalLink,
   Globe,
+  Lightbulb,
   Lock,
   MapPin,
-  Sparkles,
   Target,
   UserX,
 } from "lucide-react";
@@ -199,7 +199,7 @@ export default async function PublicMemberProfilePage({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <section className="bg-white rounded-3xl border border-border p-6 shadow-xs space-y-3">
           <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-secondary" />
+            <Lightbulb className="h-4 w-4 text-secondary" />
             <span>Compétences &amp; Expertises</span>
           </h2>
           {(() => {

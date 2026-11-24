@@ -4,7 +4,7 @@ import {
   CheckCircle,
   Briefcase,
   Calendar,
-  Sparkles,
+  UserCheck,
 } from "lucide-react";
 import type { RecentAdminActivity } from "@/types";
 
@@ -20,7 +20,7 @@ export function RecentActivityFeed({ activities }: RecentActivityFeedProps) {
       case "session_held":
         return <Calendar className="h-4 w-4 text-emerald-600" />;
       case "user_registered":
-        return <Sparkles className="h-4 w-4 text-primary" />;
+        return <UserCheck className="h-4 w-4 text-primary" />;
       case "mentor_approved":
         return <CheckCircle className="h-4 w-4 text-secondary" />;
       case "opportunity_published":

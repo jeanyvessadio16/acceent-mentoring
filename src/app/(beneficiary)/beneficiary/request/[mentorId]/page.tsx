@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Briefcase, Sparkles } from "lucide-react";
+import { ArrowLeft, Briefcase, Handshake } from "lucide-react";
 
 import { getMentorDetailByIdAction } from "@/lib/actions/beneficiary";
 import { MentorshipRequestFormClient } from "@/features/mentoring/MentorshipRequestFormClient";
@@ -45,7 +45,7 @@ export default async function BeneficiaryMentorRequestPage({
       <div className="bg-white rounded-3xl border border-border p-6 sm:p-8 shadow-xs space-y-6">
         <div className="space-y-2 border-b border-border pb-5">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary">
-            <Sparkles className="h-3.5 w-3.5" />
+            <Handshake className="h-3.5 w-3.5" />
             Demande d&apos;accompagnement (F07)
           </span>
           <h1 className="text-2xl font-bold text-foreground">

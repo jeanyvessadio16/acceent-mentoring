@@ -11,7 +11,7 @@ import {
   GraduationCap,
   Calendar,
   MessageSquare,
-  Sparkles,
+  Route,
   LogOut,
   User,
   ChevronRight,
@@ -47,7 +47,7 @@ const BENEFICIARY_NAV_ITEMS = [
   {
     label: "Mon Parcours",
     href: ROUTES.BENEFICIARY.PARCOURS,
-    icon: Sparkles,
+    icon: Route,
   },
   {
     label: "Mes Rendez-vous",

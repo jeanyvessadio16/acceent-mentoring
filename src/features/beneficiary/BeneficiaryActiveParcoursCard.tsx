@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Route, ArrowRight } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
 import type { BeneficiaryDashboardData } from "@/types";
 
@@ -26,7 +26,7 @@ export function BeneficiaryActiveParcoursCard({
 
         <div className="p-8 text-center space-y-3 bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
           <div className="mx-auto w-12 h-12 rounded-full bg-secondary/10 text-secondary flex items-center justify-center">
-            <Sparkles className="h-6 w-6" />
+            <Route className="h-6 w-6" />
           </div>
           <h4 className="text-sm font-bold text-foreground">
             Vous n&apos;avez pas encore de parcours actif

@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
-  Sparkles,
+  Handshake,
   Briefcase,
   GraduationCap,
   Target,
@@ -596,7 +596,7 @@ export function DiagnosticWizard({
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" />
+                  <CheckCircle2 className="h-4 w-4" />
                   <span>Valider mon diagnostic & Calculer le matching</span>
                 </>
               )}
@@ -614,7 +614,7 @@ export function DiagnosticWizard({
 
           <div className="space-y-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-secondary/15 text-secondary">
-              <Sparkles className="h-3.5 w-3.5" />
+              <Handshake className="h-3.5 w-3.5" />
               Matching calculé avec succès
             </span>
             <h2 className="text-2xl font-extrabold text-foreground">

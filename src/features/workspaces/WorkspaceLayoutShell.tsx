@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Inbox,
-  Sparkles,
+  Route,
   Calendar,
   Clock,
   User,
@@ -31,7 +31,7 @@ import { ThemeToggle } from "@/components/theme";
 export type WorkspaceIconKey =
   | "dashboard"
   | "inbox"
-  | "sparkles"
+  | "route"
   | "calendar"
   | "clock"
   | "user"
@@ -46,7 +46,7 @@ export type WorkspaceIconKey =
 const ICON_MAP: Record<WorkspaceIconKey, LucideIcon> = {
   dashboard: LayoutDashboard,
   inbox: Inbox,
-  sparkles: Sparkles,
+  route: Route,
   calendar: Calendar,
   clock: Clock,
   user: User,
@@ -194,8 +194,8 @@ function WorkspaceSidebarContent({
                       isActive
                         ? "bg-white text-secondary"
                         : item.badgeVariant === "secondary"
-                        ? "bg-secondary/20 text-secondary"
-                        : "bg-accent text-slate-950"
+                          ? "bg-secondary/20 text-secondary"
+                          : "bg-accent text-slate-950"
                     )}
                   >
                     {item.badge}

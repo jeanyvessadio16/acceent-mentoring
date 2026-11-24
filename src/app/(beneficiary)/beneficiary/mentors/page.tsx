@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Route } from "lucide-react";
 
 import { getActiveMentorsCatalogAction } from "@/lib/actions/beneficiary";
 import { MentorsFilterableCatalog } from "@/features/mentors/MentorsFilterableCatalog";
@@ -60,7 +60,7 @@ export default async function BeneficiaryMentorsPage() {
           href={ROUTES.BENEFICIARY.PARCOURS}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/15 transition-colors self-start sm:self-auto"
         >
-          <Sparkles className="h-3.5 w-3.5" />
+          <Route className="h-3.5 w-3.5" />
           <span>Voir mes demandes &amp; parcours</span>
         </Link>
       </div>

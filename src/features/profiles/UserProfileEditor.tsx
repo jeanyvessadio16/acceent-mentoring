@@ -9,7 +9,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
-  Sparkles,
+  Lightbulb,
   GraduationCap,
   Target,
   HeartHandshake,
@@ -598,7 +598,7 @@ export function UserProfileEditor({ initialProfile }: UserProfileEditorProps) {
           {profile.missingFields.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
               <span className="text-muted-foreground font-medium flex items-center gap-1">
-                <Sparkles className="h-3 w-3 text-amber-500" />
+                <Lightbulb className="h-3 w-3 text-amber-500" />
                 Recommandé pour atteindre 100% :
               </span>
               {profile.missingFields.slice(0, 3).map((field, idx) => (

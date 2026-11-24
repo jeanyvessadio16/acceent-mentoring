@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Compass, Sparkles, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Compass, GraduationCap, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 import { ROUTES } from "@/lib/constants";
 import type { BeneficiaryDashboardData } from "@/types";
 
@@ -23,7 +23,7 @@ export function BeneficiaryWelcomeBanner({
         <div className="relative z-10 max-w-2xl space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-white backdrop-blur-xs">
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <GraduationCap className="h-3.5 w-3.5 text-accent" />
               Espace Bénéficiaire
             </span>
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Award } from "lucide-react";
 
 import { apiRequest } from "@/lib/api/server-client";
 import { ROUTES } from "@/lib/constants";
@@ -31,7 +31,7 @@ export default async function PublicMentorsCatalogPage() {
         <div className="max-w-6xl mx-auto flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/15 text-white">
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
+              <Award className="h-3.5 w-3.5 text-accent" />
               Communauté de mentors certifiés
             </span>
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">

@@ -5,7 +5,7 @@ import {
   CheckCircle2,
   Compass,
   GraduationCap,
-  Sparkles,
+  Handshake,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -46,7 +46,7 @@ export default async function AdminAnalyticsPage() {
       label: "Matchs & Demandes",
       value: (stats.totalMatchesCount ?? 0).toLocaleString("fr-FR"),
       detail: `${stats.totalRequestsCount ?? 0} demande(s) · ${stats.pendingRequestsCount ?? 0} en attente`,
-      icon: Sparkles,
+      icon: Handshake,
       cls: "text-amber-700 bg-amber-100",
     },
     {
