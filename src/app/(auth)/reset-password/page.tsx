@@ -26,7 +26,7 @@ export default function ResetPasswordPage() {
         <div className="mx-auto flex justify-center">
           <Link href={ROUTES.HOME} className="inline-block">
             <Image
-              src="/logo/Logo Mentor_plateforme.png"
+              src="/logo/Logo-violet-AccEent-Mentoring.png"
               alt="ACCEENT Mentoring"
               width={140}
               height={48}

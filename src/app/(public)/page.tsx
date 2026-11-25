@@ -58,7 +58,7 @@ const PILLARS = [
     title: "Masterclasses & formations",
     description:
       "Des événements animés par des experts et dirigeants pour approfondir vos compétences et élargir vos horizons.",
-    color: "bg-accent/15 text-amber-700",
+    color: "bg-accent/20 text-primary",
   },
   {
     icon: Briefcase,
@@ -142,10 +142,10 @@ function HeroSection() {
       {/* Dégradés décoratifs */}
       <div
         aria-hidden
-        className="absolute inset-0 opacity-20 pointer-events-none"
+        className="absolute inset-0 opacity-30 pointer-events-none"
         style={{
           backgroundImage:
-            "radial-gradient(ellipse 60% 80% at 0% 50%, #159B78 0%, transparent 55%), radial-gradient(ellipse 40% 60% at 10% 90%, #F2A541 0%, transparent 45%)",
+            "radial-gradient(ellipse 60% 80% at 0% 50%, #836182 0%, transparent 55%), radial-gradient(ellipse 40% 60% at 10% 90%, #D6A8D0 0%, transparent 45%)",
         }}
       />
 
@@ -155,7 +155,7 @@ function HeroSection() {
           <div className="max-w-xl">
             <h1 className="text-4xl sm:text-5xl lg:text-[3.25rem] font-extrabold leading-tight tracking-tight mb-6">
               Accélérez votre parcours{" "}
-              <span className="text-emerald-300">avec les bons mentors</span>
+              <span className="text-accent">avec les bons mentors</span>
             </h1>
 
             <p className="text-lg text-white/80 leading-relaxed mb-10">
@@ -185,7 +185,7 @@ function HeroSection() {
           <div className="relative flex justify-center lg:justify-end">
             <div className="relative w-full max-w-lg lg:max-w-none aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl shadow-black/30 ring-1 ring-white/10">
               <Image
-                src="/images/Mentorat_image.png"
+                src="/images/Mentorat.png"
                 alt="Un mentor accompagne une bénéficiaire lors d'une session de travail"
                 fill
                 priority
@@ -406,7 +406,7 @@ function FeaturesHighlight() {
               className="text-3xl sm:text-4xl font-extrabold mb-4 leading-tight"
             >
               Tout ce qu&apos;il vous faut pour{" "}
-              <span className="text-emerald-300">réussir votre accompagnement</span>
+              <span className="text-accent">réussir votre accompagnement</span>
             </h2>
             <p className="text-white/75 text-lg leading-relaxed mb-8">
               Des outils concrets intégrés directement dans la plateforme pour suivre vos
@@ -427,9 +427,9 @@ function FeaturesHighlight() {
               return (
                 <li
                   key={feature.text}
-                  className="flex items-center gap-3 bg-white/8 rounded-lg px-4 py-3.5"
+                  className="flex items-center gap-3 bg-white/10 rounded-lg px-4 py-3.5"
                 >
-                  <Icon className="h-5 w-5 text-emerald-300 shrink-0" aria-hidden />
+                  <Icon className="h-5 w-5 text-accent shrink-0" aria-hidden />
                   <span className="text-sm font-medium text-white/90">{feature.text}</span>
                 </li>
               );

@@ -16,10 +16,10 @@ export default function RegisterPage() {
       <CardHeader className="text-center space-y-0.5 pb-2 pt-3 px-4 sm:px-6">
         <div className="mx-auto mb-1">
           <Image
-            src="/logo/Logo Mentor_plateforme.png"
+            src="/logo/Logo-violet-AccEent-Mentoring.png"
             width={120}
             height={40}
-            alt="Logo MentorPro"
+            alt="ACCEENT Mentoring"
             priority
             className="h-9 w-auto object-contain"
           />

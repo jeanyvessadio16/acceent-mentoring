@@ -65,6 +65,17 @@ const ROLE_MAP: Record<string, "BENEFICIAIRE" | "MENTOR" | "EXPERT" | "PARTENAIR
   partenaire: "PARTENAIRE",
 };
 
+function resolveSiteUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/+$/, "");
+  }
+  if (process.env.NODE_ENV === "development") {
+    return "http://localhost:3000";
+  }
+  return "https://acceent-mentoring.vercel.app";
+}
+
 /**
  * Connexion avec email et mot de passe via l'API NestJS `/auth/login`
  */
@@ -211,6 +222,7 @@ export async function registerAction(
       langue: data.langue || "fr",
       consentCgu: Boolean(data.acceptTerms),
       consentData: Boolean(data.acceptPrivacy),
+      emailRedirectTo: `${resolveSiteUrl()}/auth/callback`,
       ...(isMentorOrExpert
         ? {
             fonction: data.fonction?.trim(),
@@ -269,9 +281,7 @@ export async function forgotPasswordAction(
     };
   }
 
-  const siteUrl = (
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
-  ).replace(/\/+$/, "");
+  const siteUrl = resolveSiteUrl();
 
   const res = await apiRequest<{ message?: string }>("/auth/forgot-password", {
     method: "POST",

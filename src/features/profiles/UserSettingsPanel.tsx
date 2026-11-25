@@ -599,7 +599,7 @@ export function UserSettingsPanel({
           </h3>
         </div>
         <p className="text-xs text-muted-foreground">
-          Conformément au RGPD, vous pouvez exporter l&apos;ensemble de vos données au format JSON ou supprimer définitivement votre compte.
+          Conformément au RGPD, vous pouvez exporter l&apos;ensemble de vos données au format JSON ou supprimer définitivement votre compte et tous vos documents associés.
         </p>
 
         {deleteError && (
@@ -634,7 +634,7 @@ export function UserSettingsPanel({
         {showDeleteConfirm && (
           <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 space-y-3">
             <p className="text-xs font-semibold text-destructive">
-              Action irréversible : toutes vos données, demandes, parcours et messages seront supprimés.
+              Action irréversible : toutes vos données personnelles, demandes, parcours, messages ainsi que vos fichiers stockés (photo de profil, CV, pièces jointes et ressources) seront définitivement supprimés.
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
               <input

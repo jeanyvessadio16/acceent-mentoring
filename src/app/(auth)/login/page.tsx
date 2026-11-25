@@ -16,7 +16,14 @@ export default function LoginPage() {
     <Card className="w-full max-w-md shadow-lg border-border">
       <CardHeader className="text-center space-y-1">
         <div className="mx-auto">
-          <Image src="/logo/Logo Mentor_plateforme.png" width={100} height={100} alt="Logo" />
+          <Image
+            src="/logo/Logo-violet-AccEent-Mentoring.png"
+            width={140}
+            height={48}
+            alt="ACCEENT Mentoring"
+            priority
+            className="h-11 w-auto object-contain mx-auto"
+          />
         </div>
         <CardTitle className="text-2xl font-bold text-primary">Connexion</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">

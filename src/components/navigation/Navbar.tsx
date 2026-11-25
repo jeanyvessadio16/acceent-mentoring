@@ -87,8 +87,8 @@ export function Navbar({ currentUser }: NavbarProps = {}) {
               aria-label="ACCEENT Mentoring – Accueil"
             >
               <Image
-                src="/logo/Logo Mentor_plateforme.png"
-                alt="ACCEENT Mentoring — Apprendre · Évoluer · Réussir"
+                src="/logo/Logo-violet-AccEent-Mentoring.png"
+                alt="ACCEENT Mentoring"
                 width={140}
                 height={48}
                 priority
@@ -207,7 +207,7 @@ export function Navbar({ currentUser }: NavbarProps = {}) {
             className="flex items-center focus-visible:outline-none"
           >
             <Image
-              src="/logo/Logo Mentor_plateforme.png"
+              src="/logo/Logo-violet-AccEent-Mentoring.png"
               alt="ACCEENT Mentoring"
               width={120}
               height={40}

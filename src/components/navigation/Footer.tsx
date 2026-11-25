@@ -28,8 +28,8 @@ export function Footer() {
           <div className="sm:col-span-2 md:col-span-2">
             <div className="flex items-center gap-3 mb-4">
               <Image
-                src="/logo/Logo Mentor_plateforme.png"
-                alt="ACCEENT Mentoring — Apprendre · Évoluer · Réussir"
+                src="/logo/Logo-violet-AccEent-Mentoring.png"
+                alt="ACCEENT Mentoring"
                 width={160}
                 height={55}
                 className="h-12 w-auto object-contain brightness-0 invert"

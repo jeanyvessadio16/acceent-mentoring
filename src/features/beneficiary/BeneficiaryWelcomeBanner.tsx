@@ -17,7 +17,7 @@ export function BeneficiaryWelcomeBanner({
   return (
     <div className="space-y-4">
       {/* Carte d'accueil principale */}
-      <div className="bg-gradient-to-r from-primary via-slate-900 to-primary text-white rounded-3xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
+      <div className="bg-gradient-to-r from-primary via-[#182142] to-secondary text-white rounded-3xl p-6 sm:p-8 shadow-sm relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-secondary via-transparent to-transparent pointer-events-none" />
 
         <div className="relative z-10 max-w-2xl space-y-3">
@@ -62,10 +62,10 @@ export function BeneficiaryWelcomeBanner({
 
       {/* Alerte si le diagnostic initial n'est pas encore complété */}
       {!hasCompletedDiagnosis && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-accent/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-accent/20 text-accent-foreground shrink-0 mt-0.5">
-              <Compass className="h-5 w-5 text-accent" />
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0 mt-0.5">
+              <Compass className="h-5 w-5 text-primary" />
             </div>
             <div className="space-y-0.5">
               <h4 className="text-sm font-bold text-slate-900">

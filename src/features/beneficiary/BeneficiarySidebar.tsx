@@ -94,21 +94,21 @@ export function BeneficiarySidebar({
   return (
     <aside
       className={cn(
-        "w-64 bg-slate-900 text-slate-200 flex flex-col justify-between shrink-0 h-screen sticky top-0 border-r border-slate-800",
+        "w-64 bg-sidebar text-sidebar-foreground flex flex-col justify-between shrink-0 h-screen sticky top-0 border-r border-sidebar-border",
         className
       )}
     >
       <div>
         {/* En-tête : Logo plateforme & badge espace */}
-        <div className="h-16 px-5 flex items-center justify-between border-b border-slate-800">
+        <div className="h-16 px-5 flex items-center justify-between border-b border-sidebar-border">
           <Link
             href={ROUTES.DASHBOARDS.BENEFICIAIRE}
             onClick={onNavigate}
             className="flex items-center gap-2 focus:outline-none"
           >
             <Image
-              src="/logo/Logo Mentor_plateforme.png"
-              alt="ACCEENT MentorPro"
+              src="/logo/Logo-violet-AccEent-Mentoring.png"
+              alt="ACCEENT Mentoring"
               width={130}
               height={40}
               className="h-8 w-auto brightness-0 invert object-contain"
@@ -137,7 +137,7 @@ export function BeneficiarySidebar({
                   "flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all group",
                   isActive
                     ? "bg-secondary text-white font-semibold shadow-xs"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800/70"
+                    : "text-white/75 hover:text-white hover:bg-sidebar-accent/80"
                 )}
               >
                 <div className="flex items-center gap-3">
@@ -146,7 +146,7 @@ export function BeneficiarySidebar({
                       "h-4 w-4 shrink-0 transition-colors",
                       isActive
                         ? "text-white"
-                        : "text-slate-400 group-hover:text-white"
+                        : "text-white/70 group-hover:text-white"
                     )}
                   />
                   <span>{item.label}</span>
@@ -164,11 +164,11 @@ export function BeneficiarySidebar({
       </div>
 
       {/* Profil utilisateur & Déconnexion */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/40">
+      <div className="p-3 border-t border-sidebar-border bg-black/20">
         <Link
           href={ROUTES.BENEFICIARY.PROFILE}
           onClick={onNavigate}
-          className="px-3 py-2.5 rounded-xl bg-slate-800/60 hover:bg-slate-800 flex items-center justify-between mb-2 transition-colors group"
+          className="px-3 py-2.5 rounded-xl bg-sidebar-accent/70 hover:bg-sidebar-accent flex items-center justify-between mb-2 transition-colors group"
           title="Consulter et modifier mon profil"
         >
           <div className="flex items-center gap-2.5 min-w-0">

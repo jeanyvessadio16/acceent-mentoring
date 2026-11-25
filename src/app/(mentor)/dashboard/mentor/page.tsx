@@ -71,10 +71,10 @@ export default async function MentorDashboardPage() {
 
       {/* Alerte si le profil mentor n'est pas encore actif */}
       {!isActiveMentor && (
-        <div className="p-5 rounded-2xl bg-amber-50 border border-accent/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-accent/20 text-accent-foreground shrink-0">
-              <Clock className="h-5 w-5 text-accent" />
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
+              <Clock className="h-5 w-5 text-primary" />
             </div>
             <div className="space-y-0.5">
               <h2 className="text-sm font-bold text-slate-900">

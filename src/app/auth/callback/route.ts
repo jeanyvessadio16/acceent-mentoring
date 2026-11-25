@@ -23,6 +23,8 @@ function sanitizeRedirectPath(rawPath: string | null): string {
 }
 
 interface VerifyOtpResponse {
+  redirectUrl?: string;
+  dashboardUrl?: string;
   session?: {
     accessToken?: string;
     refreshToken?: string;
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") || "signup";
-  const next = sanitizeRedirectPath(searchParams.get("next"));
+  const explicitNext = searchParams.get("next");
 
   if (tokenHash) {
     try {
@@ -47,6 +49,12 @@ export async function GET(request: Request) {
 
       if (verifyRes.ok) {
         const data = (await verifyRes.json().catch(() => null)) as VerifyOtpResponse | null;
+        const next = sanitizeRedirectPath(
+          explicitNext ||
+            (type === "recovery" ? "/reset-password" : data?.redirectUrl) ||
+            data?.dashboardUrl ||
+            "/"
+        );
         const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
         const isLocalEnv = process.env.NODE_ENV === "development";
         const redirectTarget = isLocalEnv
