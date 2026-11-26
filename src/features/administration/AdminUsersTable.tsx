@@ -18,10 +18,12 @@ import {
   HeartHandshake,
   UserCheck,
   UserX,
+  Trash2,
   Check,
 } from "lucide-react";
 import type { RealDatabaseUser } from "@/lib/actions/admin";
 import {
+  deleteUserByAdminAction,
   updateUserRoleAction,
   updateUserStatusAction,
   type AdminAssignableRole,
@@ -39,9 +41,13 @@ import {
 
 interface AdminUsersTableProps {
   initialUsers: RealDatabaseUser[];
+  currentAdminId?: string;
 }
 
-export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
+export function AdminUsersTable({
+  initialUsers,
+  currentAdminId,
+}: AdminUsersTableProps) {
   const [users, setUsers] = useState<RealDatabaseUser[]>(initialUsers);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState<string>("ALL");
@@ -49,6 +55,9 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
   const [selectedInclusion, setSelectedInclusion] = useState<string>("ALL");
   const [selectedUser, setSelectedUser] = useState<RealDatabaseUser | null>(null);
   const [editingRole, setEditingRole] = useState<AdminAssignableRole>("BENEFICIAIRE");
+  const [confirmDeleteUserId, setConfirmDeleteUserId] = useState<string | null>(
+    null
+  );
 
   const [isPending, startTransition] = useTransition();
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -57,11 +66,18 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
     message: string;
   } | null>(null);
 
-  const openUserModal = (user: RealDatabaseUser) => {
+  const openUserModal = (
+    user: RealDatabaseUser,
+    startWithDeleteConfirm = false
+  ) => {
     setSelectedUser(user);
-    setEditingRole(
-      (user.role as AdminAssignableRole) || "BENEFICIAIRE"
-    );
+    setEditingRole((user.role as AdminAssignableRole) || "BENEFICIAIRE");
+    setConfirmDeleteUserId(startWithDeleteConfirm ? user.id : null);
+  };
+
+  const closeUserModal = () => {
+    setSelectedUser(null);
+    setConfirmDeleteUserId(null);
   };
 
   // Statistiques dérivées
@@ -205,6 +221,42 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
           setFeedback({
             type: "error",
             message: result.message || "Erreur lors de la modification du rôle.",
+          });
+        }
+      } catch {
+        setFeedback({
+          type: "error",
+          message: "Une erreur réseau est survenue.",
+        });
+      } finally {
+        setProcessingId(null);
+      }
+    });
+  };
+
+  // Suppression définitive d'un compte utilisateur (F16)
+  const handleDeleteUser = (userId: string) => {
+    setProcessingId(userId);
+    setFeedback(null);
+
+    startTransition(async () => {
+      try {
+        const result = await deleteUserByAdminAction(userId);
+        if (result.success) {
+          setUsers((prev) => prev.filter((u) => u.id !== userId));
+          if (selectedUser?.id === userId) {
+            setSelectedUser(null);
+          }
+          setConfirmDeleteUserId(null);
+          setFeedback({
+            type: "success",
+            message: result.message,
+          });
+        } else {
+          setFeedback({
+            type: "error",
+            message:
+              result.message || "Erreur lors de la suppression du compte.",
           });
         }
       } catch {
@@ -768,6 +820,20 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
                           Réactiver
                         </Button>
                       )}
+
+                      {user.id !== currentAdminId && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isProcessing}
+                          onClick={() => openUserModal(user, true)}
+                          aria-label={`Supprimer ${user.prenom} ${user.nom}`}
+                          title="Supprimer ce compte"
+                          className="h-8 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -807,7 +873,7 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
                 </div>
               </div>
               <button
-                onClick={() => setSelectedUser(null)}
+                onClick={closeUserModal}
                 className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
               >
                 <X className="h-4 w-4" />
@@ -968,6 +1034,74 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
                   </Button>
                 </div>
               </div>
+
+              {/* Suppression définitive du compte (F16) */}
+              {selectedUser.id !== currentAdminId && (
+                <div className="p-3.5 rounded-xl border border-destructive/30 bg-destructive/5 space-y-2.5">
+                  <h4 className="font-semibold text-[11px] uppercase tracking-wider text-destructive flex items-center gap-1.5">
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Suppression définitive du compte</span>
+                  </h4>
+                  {confirmDeleteUserId === selectedUser.id ? (
+                    <div className="space-y-2.5">
+                      <p className="text-[11px] text-destructive font-medium">
+                        Action irréversible : le compte de{" "}
+                        <strong>
+                          {selectedUser.prenom} {selectedUser.nom}
+                        </strong>
+                        , toutes ses données personnelles (parcours, sessions,
+                        messages) et ses documents stockés (photo, CV, pièces
+                        jointes) seront définitivement supprimés.
+                      </p>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={isPending}
+                          onClick={() => setConfirmDeleteUserId(null)}
+                          className="h-8 px-3 text-xs rounded-lg"
+                        >
+                          Annuler
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          disabled={isPending}
+                          onClick={() => handleDeleteUser(selectedUser.id)}
+                          className="h-8 px-3 text-xs rounded-lg gap-1.5"
+                        >
+                          {processingId === selectedUser.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                          Confirmer la suppression
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[11px] text-muted-foreground">
+                        Supprime le compte Supabase Auth, la base PostgreSQL et
+                        tous les fichiers associés.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => setConfirmDeleteUserId(selectedUser.id)}
+                        className="h-8 px-3 text-xs text-destructive border-destructive/40 hover:bg-destructive/10 shrink-0 gap-1.5"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Supprimer le compte
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Actions dans la modal */}
@@ -975,7 +1109,7 @@ export function AdminUsersTable({ initialUsers }: AdminUsersTableProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectedUser(null)}
+                onClick={closeUserModal}
                 className="text-xs"
               >
                 Fermer

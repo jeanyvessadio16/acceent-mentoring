@@ -36,6 +36,7 @@ import {
   type MentorshipRequestApiItem,
 } from "@/lib/actions/mentoring";
 import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
+import { BookSessionButton } from "@/features/sessions/BookSessionButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -894,23 +895,36 @@ export function ProgramWorkspaceClient({
 
                 {/* Sessions liées au parcours (F08 / F09) */}
                 <section className="bg-white rounded-3xl border border-border p-6 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-secondary" />
                       <h3 className="text-base font-bold text-foreground">
                         Sessions du parcours ({selectedDetail.sessions.length})
                       </h3>
                     </div>
-                    <Link
-                      href={
-                        role === "mentee"
-                          ? "/beneficiary/sessions"
-                          : "/mentor/calendar"
-                      }
-                      className="text-xs font-semibold text-secondary hover:underline"
-                    >
-                      Gérer mes sessions
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {role === "mentee" && selectedDetail.status === "ACTIVE" && (
+                        <BookSessionButton
+                          mentorId={selectedDetail.mentorId}
+                          mentorName={
+                            selectedDetail.mentor
+                              ? `${selectedDetail.mentor.prenom} ${selectedDetail.mentor.nom}`.trim()
+                              : "votre mentor"
+                          }
+                          programId={selectedDetail.id}
+                        />
+                      )}
+                      <Link
+                        href={
+                          role === "mentee"
+                            ? "/beneficiary/sessions"
+                            : "/mentor/calendar"
+                        }
+                        className="text-xs font-semibold text-secondary hover:underline"
+                      >
+                        Gérer mes sessions
+                      </Link>
+                    </div>
                   </div>
 
                   {selectedDetail.sessions.length === 0 ? (

@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 
+import { listMentorshipProgramsAction } from "@/lib/actions/mentoring";
 import { listSessionsAction } from "@/lib/actions/sessions";
 import { BeneficiarySessionsClient } from "@/features/sessions/BeneficiarySessionsClient";
+import { BookSessionButton } from "@/features/sessions/BookSessionButton";
 import { ROUTES } from "@/lib/constants";
 
 export const instant = false;
@@ -15,7 +17,14 @@ export const metadata: Metadata = {
 };
 
 export default async function BeneficiarySessionsPage() {
-  const sessionsRes = await listSessionsAction();
+  const [sessionsRes, activeProgramsRes] = await Promise.all([
+    listSessionsAction(),
+    listMentorshipProgramsAction("mentee", "ACTIVE"),
+  ]);
+  const primaryActiveProgram = activeProgramsRes.data[0] ?? null;
+  const primaryMentorName = primaryActiveProgram?.mentor
+    ? `${primaryActiveProgram.mentor.prenom} ${primaryActiveProgram.mentor.nom}`.trim()
+    : "votre mentor";
 
   return (
     <div className="space-y-6">
@@ -37,13 +46,21 @@ export default async function BeneficiarySessionsPage() {
           </p>
         </div>
 
-        <Link
-          href={ROUTES.BENEFICIARY.MENTORS}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors self-start sm:self-auto"
-        >
-          <Search className="h-3.5 w-3.5" />
-          <span>Réserver avec un mentor</span>
-        </Link>
+        {primaryActiveProgram ? (
+          <BookSessionButton
+            mentorId={primaryActiveProgram.mentorId}
+            mentorName={primaryMentorName}
+            programId={primaryActiveProgram.id}
+          />
+        ) : (
+          <Link
+            href={ROUTES.BENEFICIARY.MENTORS}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors self-start sm:self-auto"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span>Trouver un mentor (demande requise)</span>
+          </Link>
+        )}
       </div>
 
       <BeneficiarySessionsClient initialSessions={sessionsRes.data} />

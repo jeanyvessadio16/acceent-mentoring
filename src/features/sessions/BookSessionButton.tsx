@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 interface BookSessionButtonProps {
   mentorId: string;
   mentorName: string;
+  programId?: string;
   isAvailable?: boolean;
 }
 
@@ -33,6 +34,7 @@ const DAY_NAMES = [
 export function BookSessionButton({
   mentorId,
   mentorName,
+  programId,
   isAvailable = true,
 }: BookSessionButtonProps) {
   const router = useRouter();
@@ -105,6 +107,7 @@ export function BookSessionButton({
     startTransition(async () => {
       const result = await bookSessionAction({
         mentorId,
+        programId: programId || undefined,
         slotId: selectedSlotId || undefined,
         titre: titre.trim(),
         dateDebut: startIso.toISOString(),

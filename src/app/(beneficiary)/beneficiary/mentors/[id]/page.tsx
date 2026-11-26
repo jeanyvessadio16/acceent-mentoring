@@ -6,12 +6,15 @@ import {
   Award,
   Briefcase,
   Calendar,
+  CheckCircle2,
+  Clock,
   ExternalLink,
   Globe,
   MapPin,
   Users,
 } from "lucide-react";
 import { getMentorDetailByIdAction } from "@/lib/actions/beneficiary";
+import { listMentorshipRequestsAction } from "@/lib/actions/mentoring";
 import { ROUTES } from "@/lib/constants";
 import { sanitizeExternalUrl } from "@/lib/utils/url-safety";
 import { MentorshipRequestButton } from "@/features/mentoring/MentorshipRequestButton";
@@ -31,11 +34,27 @@ export default async function BeneficiaryMentorDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const mentorRecord = await getMentorDetailByIdAction(id);
+  const [mentorRecord, sentRequestsRes] = await Promise.all([
+    getMentorDetailByIdAction(id),
+    listMentorshipRequestsAction("sent"),
+  ]);
 
   if (!mentorRecord) {
     notFound();
   }
+
+  const mentorRequests = sentRequestsRes.data.filter(
+    (req) => req.mentorId === mentorRecord.userId
+  );
+  const acceptedRequest = mentorRequests.find(
+    (req) =>
+      req.status === "ACCEPTED" &&
+      req.program?.status !== "CANCELLED" &&
+      req.program?.status !== "COMPLETED"
+  );
+  const pendingRequest = !acceptedRequest
+    ? mentorRequests.find((req) => req.status === "PENDING")
+    : undefined;
 
   const fullName = `${mentorRecord.prenom} ${mentorRecord.nom}`.trim() || "Mentor ACCEENT";
   const initials =
@@ -198,19 +217,55 @@ export default async function BeneficiaryMentorDetailPage({
           </div>
         </div>
 
-        {/* Actions bénéficiaire (F07 Demande, F09 Session, F16 Signalement) */}
-        <div className="pt-5 border-t border-border flex flex-wrap items-center justify-between gap-3">
+        {/* Actions bénéficiaire (F07 Demande, F09 Session après acceptation, F16 Signalement) */}
+        <div className="pt-5 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3">
-            <MentorshipRequestButton
-              mentorId={mentorRecord.userId}
-              mentorName={fullName}
-              isAvailable={mentorRecord.isAvailable}
-            />
-            <BookSessionButton
-              mentorId={mentorRecord.userId}
-              mentorName={fullName}
-              isAvailable={mentorRecord.isAvailable}
-            />
+            {acceptedRequest ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Demande acceptée · Accompagnement actif</span>
+                </span>
+                <BookSessionButton
+                  mentorId={mentorRecord.userId}
+                  mentorName={fullName}
+                  programId={acceptedRequest.program?.id}
+                  isAvailable={mentorRecord.isAvailable}
+                />
+                <Link
+                  href={ROUTES.BENEFICIARY.PARCOURS}
+                  className="inline-flex items-center px-3.5 py-2 rounded-full text-xs font-semibold border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+                >
+                  Voir mon parcours
+                </Link>
+              </>
+            ) : pendingRequest ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                  <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>
+                    Demande de mentorat en attente — vous pourrez réserver une session dès son acceptation
+                  </span>
+                </span>
+                <Link
+                  href={ROUTES.BENEFICIARY.PARCOURS}
+                  className="inline-flex items-center px-3.5 py-2 rounded-full text-xs font-semibold border border-border text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+                >
+                  Suivre ma demande
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <MentorshipRequestButton
+                  mentorId={mentorRecord.userId}
+                  mentorName={fullName}
+                  isAvailable={mentorRecord.isAvailable}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  La réservation de session est accessible une fois votre demande de mentorat acceptée.
+                </p>
+              </div>
+            )}
           </div>
 
           <ReportModalButton

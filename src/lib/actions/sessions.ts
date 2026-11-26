@@ -46,7 +46,9 @@ export interface MentorshipSessionApiItem {
 
 function revalidateSessionPaths() {
   revalidatePath("/mentor/calendar");
+  revalidatePath("/mentor/parcours");
   revalidatePath("/beneficiary/sessions");
+  revalidatePath("/beneficiary/parcours");
   revalidatePath("/dashboard/mentor");
   revalidatePath("/dashboard/beneficiaire");
 }

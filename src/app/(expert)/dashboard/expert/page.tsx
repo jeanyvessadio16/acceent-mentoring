@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Award, GraduationCap, Calendar, UserCheck, ArrowRight } from "lucide-react";
+import { GraduationCap, Calendar, UserCheck, ArrowRight } from "lucide-react";
 import { getExpertWorkspaceDataAction } from "@/lib/actions/workspace";
 import { ROUTES } from "@/lib/constants";
 
@@ -21,29 +21,6 @@ export default async function ExpertDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-border shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
-            <Award className="h-3.5 w-3.5" />
-            Espace Expert
-          </span>
-          <h1 className="text-2xl font-bold text-foreground">
-            Bonjour, {data.user.prenom || "Expert"} !
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Interventions thématiques, consultations ponctuelles et animations de masterclasses.
-          </p>
-        </div>
-
-        <Link
-          href={ROUTES.EXPERT.PROFILE}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition-colors shrink-0 self-start sm:self-center"
-        >
-          <UserCheck className="h-4 w-4" />
-          <span>Mon profil expert</span>
-        </Link>
-      </div>
-
       {/* KPIs réels */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-5 rounded-2xl bg-white border border-border shadow-xs space-y-2">

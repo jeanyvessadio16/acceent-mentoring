@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Users } from "lucide-react";
-import { getAdminStatsAction, getRealUsersListAction } from "@/lib/actions/admin";
+import {
+  getAdminStatsAction,
+  getCurrentAdminUserAction,
+  getRealUsersListAction,
+} from "@/lib/actions/admin";
 import { AdminUsersTable } from "@/features/administration";
 
 export const instant = false;
@@ -11,9 +15,10 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminUsersPage() {
-  const [stats, realUsers] = await Promise.all([
+  const [stats, realUsers, currentAdmin] = await Promise.all([
     getAdminStatsAction(),
     getRealUsersListAction(),
+    getCurrentAdminUserAction(),
   ]);
 
   return (
@@ -31,7 +36,10 @@ export default async function AdminUsersPage() {
       </div>
 
       {/* Table interactive et synchronisée avec Supabase Auth & PostgreSQL */}
-      <AdminUsersTable initialUsers={realUsers} />
+      <AdminUsersTable
+        initialUsers={realUsers}
+        currentAdminId={currentAdmin?.id}
+      />
     </div>
   );
 }

@@ -391,6 +391,41 @@ export async function updateUserRoleAction(
   };
 }
 
+/**
+ * Server Action : Supprime définitivement le compte d'un utilisateur et ses documents via `DELETE /admin/users/:id`
+ */
+export async function deleteUserByAdminAction(
+  userId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await apiRequest<{ message?: string }>(`/admin/users/${userId}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    return {
+      success: false,
+      message:
+        res.error || "Impossible de supprimer ce compte utilisateur.",
+    };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/validations");
+  revalidatePath("/admin/supervision");
+  revalidatePath("/admin/analytics");
+  revalidatePath("/mentors");
+  revalidatePath("/beneficiary/mentors");
+
+  return {
+    success: true,
+    message:
+      res.data?.message ||
+      "Compte utilisateur et documents associés supprimés définitivement.",
+  };
+}
+
 export interface AdminProgramItem {
   id: string;
   titre: string;

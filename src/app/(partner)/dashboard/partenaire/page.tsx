@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  Handshake,
   Briefcase,
   BarChart3,
   UserCheck,
@@ -27,29 +26,6 @@ export default async function PartenaireDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-border shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-            <Handshake className="h-3.5 w-3.5" />
-            Espace Partenaire &amp; Bailleurs
-          </span>
-          <h1 className="text-2xl font-bold text-foreground">
-            Bonjour, {data.user.prenom || "Partenaire"} !
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Suivi en temps réel des bénéficiaires accompagnés, des opportunités publiées et des indicateurs d&apos;inclusion.
-          </p>
-        </div>
-
-        <Link
-          href={ROUTES.PARTNER.PROFILE}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold text-white bg-primary hover:bg-primary/90 transition-colors shrink-0 self-start sm:self-center"
-        >
-          <UserCheck className="h-4 w-4" />
-          <span>Mon profil partenaire</span>
-        </Link>
-      </div>
-
       {/* KPIs réels */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-2xl bg-white border border-border shadow-xs space-y-2">

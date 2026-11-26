@@ -245,8 +245,8 @@ export function BeneficiarySessionsClient({
             Aucune session planifiée
           </h2>
           <p className="text-xs text-muted-foreground">
-            Consultez le profil d&apos;un mentor pour réserver votre prochain
-            créneau d&apos;accompagnement.
+            Envoyez une demande de mentorat à un mentor ou expert ; dès son
+            acceptation, vous pourrez réserver votre prochain créneau de session.
           </p>
         </div>
       ) : (
