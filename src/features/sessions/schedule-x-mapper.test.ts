@@ -18,6 +18,8 @@ const BASE_SESSION: MentorshipSessionApiItem = {
   dateFin: "2026-11-24T11:30:00.000Z",
   meetingUrl: "https://meet.example.com/acceent",
   notes: "Préparer le pitch deck",
+  feedbackMentee: null,
+  feedbackMentor: null,
   feedback: null,
   rating: null,
   status: "SCHEDULED",

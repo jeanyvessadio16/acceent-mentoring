@@ -32,7 +32,9 @@ export interface MentorshipSessionApiItem {
   dateFin: string;
   meetingUrl: string | null;
   notes: string | null;
-  feedback: string | null;
+  feedbackMentee?: string | null;
+  feedbackMentor?: string | null;
+  feedback?: string | null;
   rating: number | null;
   status: "SCHEDULED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED" | string;
   createdAt?: string;

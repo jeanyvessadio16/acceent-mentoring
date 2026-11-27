@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 
-import { listOpportunitiesAction } from "@/lib/actions/catalogs";
+import { listManagedOpportunitiesAction } from "@/lib/actions/catalogs";
 import { OpportunityManagerClient } from "@/features/catalogs/OpportunityManagerClient";
 import { ROUTES } from "@/lib/constants";
 
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 
 export default async function AdminOpportunitiesPage() {
   await connection();
-  const oppRes = await listOpportunitiesAction();
+  const oppRes = await listManagedOpportunitiesAction();
 
   return (
     <div className="space-y-6">

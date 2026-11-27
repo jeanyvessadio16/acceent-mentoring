@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { WorkspaceLayoutShell, type WorkspaceNavItem } from "@/features/workspaces";
+import { resolveUnauthorizedWorkspaceRedirectAction } from "@/lib/actions/auth";
 import { getPartnerWorkspaceDataAction } from "@/lib/actions/workspace";
 import { ROUTES } from "@/lib/constants";
 
@@ -21,7 +22,7 @@ export default async function PartnerSpaceLayout({
   const data = await getPartnerWorkspaceDataAction();
 
   if (!data) {
-    redirect(ROUTES.AUTH.LOGIN);
+    redirect(await resolveUnauthorizedWorkspaceRedirectAction("PARTENAIRE"));
   }
 
   const navItems: WorkspaceNavItem[] = [

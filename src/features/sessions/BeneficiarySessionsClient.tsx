@@ -171,7 +171,12 @@ export function BeneficiarySessionsClient({
       setSessions((prev) =>
         prev.map((s) =>
           s.id === sessionId
-            ? { ...s, rating, feedback: text ?? s.feedback }
+            ? {
+                ...s,
+                rating,
+                feedbackMentee: text ?? s.feedbackMentee ?? s.feedback ?? null,
+                feedback: text ?? s.feedbackMentee ?? s.feedback ?? null,
+              }
             : s
         )
       );
@@ -388,16 +393,19 @@ export function BeneficiarySessionsClient({
 
                 {session.status === "COMPLETED" && (
                   <div className="pt-3 border-t border-border/70">
-                    {session.rating || session.feedback ? (
-                      <div className="text-xs text-muted-foreground flex items-center gap-2">
-                        <Star className="h-4 w-4 text-amber-500 fill-amber-500 shrink-0" />
-                        <span>
-                          Évaluation enregistrée :{" "}
-                          <strong>{session.rating ?? "-"}/5</strong>
-                          {session.feedback ? ` · ${session.feedback}` : ""}
-                        </span>
-                      </div>
-                    ) : (
+                    {(() => {
+                      const savedComment =
+                        session.feedbackMentee ?? session.feedback ?? null;
+                      return session.rating || savedComment ? (
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                          <Star className="h-4 w-4 text-amber-500 fill-amber-500 shrink-0" />
+                          <span>
+                            Évaluation enregistrée :{" "}
+                            <strong>{session.rating ?? "-"}/5</strong>
+                            {savedComment ? ` · ${savedComment}` : ""}
+                          </span>
+                        </div>
+                      ) : (
                       <form
                         onSubmit={(e) => handleSubmitFeedback(e, session.id)}
                         className="flex flex-col sm:flex-row gap-2 items-end"
@@ -446,7 +454,8 @@ export function BeneficiarySessionsClient({
                           Envoyer mon avis
                         </Button>
                       </form>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
               </div>

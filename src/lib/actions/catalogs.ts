@@ -11,6 +11,7 @@ export type MasterclassStatusValue =
 
 export interface MasterclassApiItem {
   id: string;
+  createdById?: string | null;
   titre: string;
   intervenant: string;
   description: string;
@@ -53,6 +54,7 @@ export type OpportunityStatusValue = "ACTIVE" | "EXPIRED" | "ARCHIVED";
 
 export interface OpportunityApiItem {
   id: string;
+  createdById?: string | null;
   titre: string;
   organisation: string;
   categorie: OpportunityCategoryValue | string;
@@ -150,6 +152,20 @@ export async function listMasterclassesAction(filter?: {
     }
   );
 
+  if (!res.ok || !res.data) {
+    return { ok: false, data: [], error: res.error };
+  }
+  return { ok: true, data: res.data.data ?? [] };
+}
+
+export async function listManagedMasterclassesAction(): Promise<{
+  ok: boolean;
+  data: MasterclassApiItem[];
+  error?: string;
+}> {
+  const res = await apiRequest<{ data: MasterclassApiItem[] }>(
+    "/masterclasses/me/created"
+  );
   if (!res.ok || !res.data) {
     return { ok: false, data: [], error: res.error };
   }
@@ -371,6 +387,20 @@ export async function listOpportunitiesAction(filter?: {
     }
   );
 
+  if (!res.ok || !res.data) {
+    return { ok: false, data: [], error: res.error };
+  }
+  return { ok: true, data: res.data.data ?? [] };
+}
+
+export async function listManagedOpportunitiesAction(): Promise<{
+  ok: boolean;
+  data: OpportunityApiItem[];
+  error?: string;
+}> {
+  const res = await apiRequest<{ data: OpportunityApiItem[] }>(
+    "/opportunities/me/created"
+  );
   if (!res.ok || !res.data) {
     return { ok: false, data: [], error: res.error };
   }

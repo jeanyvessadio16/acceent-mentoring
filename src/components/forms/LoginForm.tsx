@@ -24,6 +24,7 @@ interface LoginFormProps {
 export function LoginForm({ onSuccess, className }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const justRegistered = searchParams.get("registered") === "1";
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -95,22 +96,32 @@ export function LoginForm({ onSuccess, className }: LoginFormProps) {
     }
   };
 
+  const activeFeedback =
+    feedback ??
+    (justRegistered
+      ? {
+          type: "success" as const,
+          message:
+            "Inscription réussie ! Vous pouvez maintenant vous connecter à votre compte.",
+        }
+      : null);
+
   return (
     <div className={className}>
-      {feedback && (
+      {activeFeedback && (
         <div
           role="alert"
-          className={`mb-5 p-3 rounded-lg text-sm flex items-start gap-2.5 ${feedback.type === "success"
+          className={`mb-5 p-3 rounded-lg text-sm flex items-start gap-2.5 ${activeFeedback.type === "success"
             ? "bg-success/10 text-success border border-success/20"
             : "bg-destructive/10 text-destructive border border-destructive/20"
             }`}
         >
-          {feedback.type === "success" ? (
+          {activeFeedback.type === "success" ? (
             <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" aria-hidden />
           ) : (
             <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" aria-hidden />
           )}
-          <span>{feedback.message}</span>
+          <span>{activeFeedback.message}</span>
         </div>
       )}
 

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { BeneficiarySidebar, BeneficiaryHeader } from "@/features/beneficiary";
+import { resolveUnauthorizedWorkspaceRedirectAction } from "@/lib/actions/auth";
 import { getBeneficiaryDashboardAction } from "@/lib/actions/beneficiary";
-import { ROUTES } from "@/lib/constants";
 
 export const instant = false;
 
@@ -21,7 +21,7 @@ export default async function BeneficiarySpaceLayout({
   const data = await getBeneficiaryDashboardAction();
 
   if (!data) {
-    redirect(ROUTES.AUTH.LOGIN);
+    redirect(await resolveUnauthorizedWorkspaceRedirectAction("BENEFICIAIRE"));
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -96,6 +97,7 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -316,17 +318,16 @@ export function RegisterForm({ onSuccess, className }: RegisterFormProps) {
       if (res.success) {
         setFeedback({
           type: "success",
-          message: isValidationRequired
-            ? "Compte créé avec succès ! Votre candidature et votre CV ont été transmis pour validation par l'équipe administrative."
-            : selectedAccountType === "partner"
-            ? "Compte partenaire créé avec succès ! Votre accès est soumis à validation administrative."
-            : res.message ||
-              "Compte créé avec succès ! Un lien de vérification vous a été envoyé par email.",
+          message:
+            "Compte créé avec succès ! Redirection vers la page de connexion...",
         });
 
         if (onSuccess) {
           onSuccess(data);
         }
+
+        router.push(`${ROUTES.AUTH.LOGIN}?registered=1`);
+        router.refresh();
       } else {
         setFeedback({
           type: "error",

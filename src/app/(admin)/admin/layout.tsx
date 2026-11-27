@@ -6,7 +6,7 @@ import {
   getPendingValidationsAction,
   getCurrentAdminUserAction,
 } from "@/lib/actions/admin";
-import { ROUTES } from "@/lib/constants";
+import { resolveUnauthorizedWorkspaceRedirectAction } from "@/lib/actions/auth";
 
 export const instant = false;
 
@@ -23,7 +23,7 @@ export default async function AdminLayout({
   await connection();
   const currentUser = await getCurrentAdminUserAction();
   if (!currentUser) {
-    redirect(ROUTES.AUTH.LOGIN);
+    redirect(await resolveUnauthorizedWorkspaceRedirectAction("ADMIN"));
   }
 
   const pendingItems = await getPendingValidationsAction();

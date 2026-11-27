@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 
-import { listMasterclassesAction } from "@/lib/actions/catalogs";
+import { listManagedMasterclassesAction } from "@/lib/actions/catalogs";
 import { MasterclassManagerClient } from "@/features/catalogs/MasterclassManagerClient";
 
 export const instant = false;
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default async function ExpertMasterclassesPage() {
   await connection();
-  const mcRes = await listMasterclassesAction();
+  const mcRes = await listManagedMasterclassesAction();
 
   return (
     <div className="space-y-6">

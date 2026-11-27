@@ -219,7 +219,7 @@ export async function registerAction(
       telephone: data.phone || undefined,
       pays: data.country || "Sénégal",
       role: normalizedRole,
-      langue: data.langue || "Français",
+      langue: data.langue || "fr",
       consentCgu: Boolean(data.acceptTerms),
       consentData: Boolean(data.acceptPrivacy),
       emailRedirectTo: `${resolveSiteUrl()}/auth/callback`,
@@ -248,9 +248,7 @@ export async function registerAction(
     };
   }
 
-  if (res.data.session?.accessToken) {
-    await setSessionCookies(res.data.session);
-  }
+  await clearSessionCookies();
 
   revalidatePath("/", "layout");
   revalidatePath("/admin/validations");
@@ -261,9 +259,8 @@ export async function registerAction(
     success: true,
     message:
       res.data.message ||
-      "Compte créé avec succès ! Vérifiez votre boîte email si une confirmation est requise.",
-    redirectUrl: res.data.redirectUrl,
-    dashboardUrl: res.data.dashboardUrl,
+      "Compte créé avec succès ! Vous pouvez maintenant vous connecter.",
+    redirectUrl: ROUTES.AUTH.LOGIN,
   };
 }
 
@@ -389,4 +386,42 @@ export async function changePasswordAction(
       res.data?.message ||
       "Votre mot de passe a été mis à jour avec succès.",
   };
+}
+
+const ROLE_DEFAULT_WORKSPACE: Record<string, string> = {
+  ADMIN: ROUTES.ADMIN.DASHBOARD,
+  BENEFICIAIRE: ROUTES.BENEFICIARY.DASHBOARD,
+  MENTOR: ROUTES.MENTOR.DASHBOARD,
+  EXPERT: ROUTES.EXPERT.DASHBOARD,
+  PARTENAIRE: ROUTES.PARTNER.DASHBOARD,
+};
+
+/**
+ * Redirige un utilisateur déjà connecté vers son propre espace s'il tente d'accéder
+ * à un espace réservé à un autre rôle (évite un faux renvoi vers `/login`).
+ */
+export async function resolveUnauthorizedWorkspaceRedirectAction(
+  expectedRole: "ADMIN" | "BENEFICIAIRE" | "MENTOR" | "EXPERT" | "PARTENAIRE"
+): Promise<string> {
+  const meRes = await apiRequest<{
+    role?: string;
+    statutCompte?: string;
+    dashboardUrl?: string;
+  }>("/auth/me");
+
+  if (
+    meRes.ok &&
+    meRes.data?.role &&
+    meRes.data.role !== expectedRole &&
+    meRes.data.statutCompte !== "SUSPENDED" &&
+    meRes.data.statutCompte !== "REJECTED"
+  ) {
+    return (
+      ROLE_DEFAULT_WORKSPACE[meRes.data.role] ||
+      meRes.data.dashboardUrl ||
+      ROUTES.HOME
+    );
+  }
+
+  return ROUTES.AUTH.LOGIN;
 }
