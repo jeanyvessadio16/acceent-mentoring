@@ -118,10 +118,10 @@ export async function loginAction(
     dashboardUrl: res.data.dashboardUrl,
     user: res.data.user
       ? {
-          id: res.data.user.id,
-          email: res.data.user.email,
-          role: res.data.user.role,
-        }
+        id: res.data.user.id,
+        email: res.data.user.email,
+        role: res.data.user.role,
+      }
       : undefined,
   };
 }
@@ -201,8 +201,8 @@ export async function registerAction(
     data.milieuResidence === "Rural"
       ? "RURAL"
       : data.milieuResidence === "Urbain"
-      ? "URBAIN"
-      : undefined;
+        ? "URBAIN"
+        : undefined;
 
   const res = await apiRequest<AuthRegisterApiResponse>("/auth/register", {
     method: "POST",
@@ -219,24 +219,24 @@ export async function registerAction(
       telephone: data.phone || undefined,
       pays: data.country || "Sénégal",
       role: normalizedRole,
-      langue: data.langue || "fr",
+      langue: data.langue || "Français",
       consentCgu: Boolean(data.acceptTerms),
       consentData: Boolean(data.acceptPrivacy),
       emailRedirectTo: `${resolveSiteUrl()}/auth/callback`,
       ...(isMentorOrExpert
         ? {
-            fonction: data.fonction?.trim(),
-            organisation: data.organisation?.trim(),
-            anneesExperience: data.anneesExperience,
-            expertises: data.expertises || [],
-            secteurs: data.secteurs || [],
-            typesMentoring: data.typesMentoring || "INDIVIDUEL",
-            disponibilites: data.disponibilites?.trim() || undefined,
-            biographie: data.biographie?.trim(),
-            linkedinUrl: data.linkedinUrl?.trim() || undefined,
-            references: data.references?.trim() || undefined,
-            cvBase64,
-          }
+          fonction: data.fonction?.trim(),
+          organisation: data.organisation?.trim(),
+          anneesExperience: data.anneesExperience,
+          expertises: data.expertises || [],
+          secteurs: data.secteurs || [],
+          typesMentoring: data.typesMentoring || "INDIVIDUEL",
+          disponibilites: data.disponibilites?.trim() || undefined,
+          biographie: data.biographie?.trim(),
+          linkedinUrl: data.linkedinUrl?.trim() || undefined,
+          references: data.references?.trim() || undefined,
+          cvBase64,
+        }
         : {}),
     },
   });
